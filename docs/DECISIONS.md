@@ -19,3 +19,22 @@ Each entry: what we chose, why, and what it costs.
   still pass; revisit if it becomes an error.
 - **GNU make is required for `make` targets.** It is not installed on Windows by default; the
   README lists the equivalent raw commands.
+
+## Domain model
+
+- **Three-state `Status` (pass / review / fail), never binary.** `review` is where judgment
+  calls go (case-only differences, low OCR confidence, bold unverifiable) so the agent decides.
+- **`overall_status` is computed, not stored.** It is a Pydantic computed field on
+  `LabelResult` (worst field status via `worst_status`), so it can never disagree with the
+  fields and still appears in JSON responses.
+- **Nothing verified is never a pass.** An empty field list, or a label that could not be
+  processed (`error` set, e.g. unreadable image), gives `fail`. A per-label `error` also lets
+  one bad file in a batch become a result rather than failing the whole job.
+- **`ApplicationData` keeps the raw strings the agent typed** (`"45% ABV (90 proof)"`,
+  `"750 mL"`). Parsing lives in `matching/parsers.py` so it can be unit tested and so the
+  original value can be quoted back in reasons. Blank required fields are rejected; unknown
+  keys are ignored so CSV manifests with extra columns still load.
+- **A review or fail result without a reason is a validation error.** This enforces the rule
+  that every non-pass result explains itself in plain English.
+- **The standard warning text lives in `schemas.py`** as `STANDARD_GOVERNMENT_WARNING`, the
+  default for `ApplicationData.government_warning` and the reference for the warning check.
