@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Env and editors
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scratch output (uploads are never written to disk by the app)
+*.log

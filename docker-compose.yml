@@ -1,0 +1,8 @@
+services:
+  labellens:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      LABELLENS_BATCH_WORKERS: "4"
+      LABELLENS_ENABLE_LLM_FALLBACK: "false"
