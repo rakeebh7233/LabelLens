@@ -224,36 +224,43 @@ Keep it honest and concise.
 ## Reusable utility prompts
 
 **Plan before coding**
+
 ```
 Before writing code, propose a plan for <task> in under 15 lines: files to touch, new functions, tests, and risks. Wait for my approval.
 ```
 
 **Add tests**
+
 ```
 Review <file>. List the edge cases not yet covered, then add pytest tests for them. Do not change the implementation unless a test reveals a real bug; if so, explain it first.
 ```
 
 **Debug**
+
 ```
 <paste error or describe behavior>. Find the root cause before changing anything. Explain it in two sentences, show the minimal fix, and add a regression test.
 ```
 
 **Performance check**
+
 ```
 Profile the single-label path on samples/labels using the timings_ms output. Show a per-stage breakdown over 20 runs (median and p95). If the median exceeds 5 seconds, propose the smallest change that fixes the biggest stage, then re-measure.
 ```
 
 **Code review**
+
 ```
 Act as a strict reviewer for a take-home evaluation. Review the diff against CLAUDE.md for: correctness, readability, error handling, naming, dead code, missing tests, and UX copy a non-technical user might not understand. Return a prioritized list; do not edit.
 ```
 
 **Plain-language UX copy pass**
+
 ```
 List every user-facing string in the frontend. Rewrite any that contain jargon, blame the user, or exceed one short sentence. Keep tone calm and direct (reading level around grade 7).
 ```
 
 **Final pre-submission checklist**
+
 ```
 Run through the submission checklist: fresh clone builds with the README steps only; tests pass; sample regeneration works; Docker image runs; deployed URL works with the sample labels; no secrets committed; README documents trade-offs and limitations. Report anything failing.
 ```

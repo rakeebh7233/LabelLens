@@ -26,12 +26,12 @@ five seconds. It also handles batches of hundreds of labels.
 
 ## What it checks
 
-| Field | How it is compared | Possible results |
-|---|---|---|
-| Brand name | Normalized text match, fuzzy fallback | Pass / Review / Fail |
-| Class/type | Normalized text match, fuzzy fallback | Pass / Review / Fail |
-| Alcohol content | Parsed numerically; ABV and proof are interchangeable | Pass / Fail |
-| Net contents | Parsed and converted to mL | Pass / Review / Fail |
+| Field              | How it is compared                                                                        | Possible results     |
+| ------------------ | ----------------------------------------------------------------------------------------- | -------------------- |
+| Brand name         | Normalized text match, fuzzy fallback                                                     | Pass / Review / Fail |
+| Class/type         | Normalized text match, fuzzy fallback                                                     | Pass / Review / Fail |
+| Alcohol content    | Parsed numerically; ABV and proof are interchangeable                                     | Pass / Fail          |
+| Net contents       | Parsed and converted to mL                                                                | Pass / Review / Fail |
 | Government warning | Exact wording; "GOVERNMENT WARNING:" must be uppercase; bold check <TODO: if implemented> | Pass / Review / Fail |
 
 **Three results, not two.** *Pass* means it matches. *Needs review* means it is probably fine but a
@@ -106,13 +106,13 @@ stops the batch. Results appear as they finish and can be exported as CSV.
 
 ## API
 
-| Method | Path | Purpose |
-|---|---|---|
-| POST | `/api/verify` | One image + application fields -> `LabelResult` |
-| POST | `/api/batch` | Images + `manifest.csv` -> `{job_id}` |
-| GET | `/api/batch/{job_id}` | Progress and results so far |
-| GET | `/api/batch/{job_id}/export.csv` | Download results |
-| GET | `/api/health` | Health check (also reports whether Tesseract is available) |
+| Method | Path                               | Purpose                                                    |
+| ------ | ---------------------------------- | ---------------------------------------------------------- |
+| POST   | `/api/verify`                    | One image + application fields -> `LabelResult`          |
+| POST   | `/api/batch`                     | Images + `manifest.csv` -> `{job_id}`                  |
+| GET    | `/api/batch/{job_id}`            | Progress and results so far                                |
+| GET    | `/api/batch/{job_id}/export.csv` | Download results                                           |
+| GET    | `/api/health`                    | Health check (also reports whether Tesseract is available) |
 
 Interactive docs: `/docs` (FastAPI Swagger UI).
 
@@ -123,26 +123,26 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 
 ## How the stakeholder feedback shaped the design
 
-| What we heard | Decision |
-|---|---|
-| "If we can't get results in about 5 seconds, nobody's going to use it." (Sarah) | Local OCR, one OCR pass per label, image downscaling, per-stage timings returned so the budget is measurable. <TODO: add your measured median/p95> |
-| "Something my mother could figure out." (Sarah) | One main action per page, large buttons, visible labels, plain-language messages, status shown with text and icons, not color alone. |
-| Batch uploads of 200-300 labels (Sarah) | Batch page with CSV manifest, live progress, sortable table with fails first, CSV export. |
-| Network blocks outbound domains; the previous vendor's ML endpoints failed (Marcus) | No cloud AI dependency. All OCR runs inside the app container. |
-| "You need judgment." STONE'S THROW vs Stone's Throw (Dave) | Three-state results. Case-only differences become *Needs review*, so the agent keeps the decision. |
-| Warning must be exact, uppercase and bold (Jenny) | Word-for-word comparison against the canonical text; uppercase prefix enforced; <TODO: bold heuristic status>. |
-| Bad angles, glare, poor lighting (Jenny) | Conditional deskew and glare reduction when OCR confidence is low; very poor images produce *Needs review* with a hint to request a better photo instead of a false pass. |
+| What we heard                                                                       | Decision                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "If we can't get results in about 5 seconds, nobody's going to use it." (Sarah)     | Local OCR, one OCR pass per label, image downscaling, per-stage timings returned so the budget is measurable. <TODO: add your measured median/p95>                          |
+| "Something my mother could figure out." (Sarah)                                     | One main action per page, large buttons, visible labels, plain-language messages, status shown with text and icons, not color alone.                                        |
+| Batch uploads of 200-300 labels (Sarah)                                             | Batch page with CSV manifest, live progress, sortable table with fails first, CSV export.                                                                                   |
+| Network blocks outbound domains; the previous vendor's ML endpoints failed (Marcus) | No cloud AI dependency. All OCR runs inside the app container.                                                                                                              |
+| "You need judgment." STONE'S THROW vs Stone's Throw (Dave)                          | Three-state results. Case-only differences become *Needs review*, so the agent keeps the decision.                                                                        |
+| Warning must be exact, uppercase and bold (Jenny)                                   | Word-for-word comparison against the canonical text; uppercase prefix enforced; <TODO: bold heuristic status>.                                                              |
+| Bad angles, glare, poor lighting (Jenny)                                            | Conditional deskew and glare reduction when OCR confidence is low; very poor images produce *Needs review* with a hint to request a better photo instead of a false pass. |
 
 ## Tools and why
 
-| Choice | Reason | Alternative considered |
-|---|---|---|
-| Python + FastAPI | Strongest OCR/image ecosystem; async-friendly uploads | Node backend (weaker OCR tooling) |
-| Tesseract (local) | No outbound calls, fast, easy to containerize | Cloud vision APIs (blocked by firewall, added latency); PaddleOCR (heavier) |
-| OpenCV | Standard for deskew/contrast/glare work | Pillow only (not enough) |
-| rapidfuzz | Fast fuzzy matching | difflib (slower, fewer scorers) |
-| React + Vite + Tailwind | Fast to build accessible, clear UI | Server-rendered templates |
-| Docker | Tesseract is a system dependency; one reproducible image | Native buildpack |
+| Choice                  | Reason                                                   | Alternative considered                                                      |
+| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Python + FastAPI        | Strongest OCR/image ecosystem; async-friendly uploads    | Node backend (weaker OCR tooling)                                           |
+| Tesseract (local)       | No outbound calls, fast, easy to containerize            | Cloud vision APIs (blocked by firewall, added latency); PaddleOCR (heavier) |
+| OpenCV                  | Standard for deskew/contrast/glare work                  | Pillow only (not enough)                                                    |
+| rapidfuzz               | Fast fuzzy matching                                      | difflib (slower, fewer scorers)                                             |
+| React + Vite + Tailwind | Fast to build accessible, clear UI                       | Server-rendered templates                                                   |
+| Docker                  | Tesseract is a system dependency; one reproducible image | Native buildpack                                                            |
 
 <TODO: link to docs/DECISIONS.md for the longer version>
 
@@ -196,8 +196,8 @@ docs/       DECISIONS.md
 <TODO: summarize coverage, e.g. "N unit tests for normalization/parsing/compare, M API tests,
 sample-label regression test asserting expected status for each file">
 
-**Measured performance** (<TODO: machine/instance>): single label median <TODO> s, p95 <TODO> s;
-250-label batch in <TODO> s.
+**Measured performance** (<TODO: machine/instance>): single label median <TODO></todo> s, p95 <TODO></todo> s;
+250-label batch in <TODO></todo> s.
 
 ## License / credits
 
