@@ -101,3 +101,37 @@ Each entry: what we chose, why, and what it costs.
 - **Thresholds are passed explicitly.** Comparison functions default to the built-in
   `MatchThresholds()`; the verify service (Phase 6) must pass `get_settings().thresholds` so
   environment overrides take effect.
+
+## Government warning
+
+- **Tolerant locating, strict judging.** `locate_warning` finds the block with a fuzzy
+  alignment (`rapidfuzz.partial_ratio_alignment`), ignoring case and OCR noise, so the warning
+  is found among other label text. `compare_warning` then judges word for word, case-sensitive.
+  A score of 60 marks "found": real warnings score 80-100 and unrelated label text scores
+  about 40. The match must also cover 30% of the warning, because very short text (for
+  example "abc") gets a high partial score by chance.
+- **The block is trimmed to solid runs of 3+ matching words.** Otherwise a common word such
+  as "and" in the bottler line after a truncated warning would be counted as part of it. Edge
+  words that resemble the expected words are kept, so a misread first or last word is judged,
+  not dropped.
+- **Line-end hyphens are joined before judging** ("preg-\nnancy" -> "pregnancy"). This is
+  layout, not wording, and it is safe because the required text has no hyphenated words.
+- **Prefix rules, checked first:** missing -> fail; not all capitals ("Government Warning:",
+  "GOVERNMENT Warning:") -> fail; no colon -> fail. A colon OCR'd as a semicolon is a misread
+  (review), not a missing colon.
+- **OCR damage -> review, limited tightly.** It counts as damage only when every difference is
+  a one-for-one word swap, each within 1 character edit (2 for words of 8+ letters), and at
+  most 3 words differ. Anything else fails with a reason listing the differences (missing,
+  extra, or "X where it should say Y"; the first 3, then "and N more"). The cost: a real
+  one-letter change on a long word ("women" -> "woman") or a lost period lands in review rather
+  than fail. A person still sees it, and nothing that differs ever passes.
+- **Capitalization in the body is strict.** "surgeon general" fails. A case-only difference
+  never counts as an OCR misread.
+- **Bold (interim, until Phase 12).** `prefix_bold=None` (not checked) -> pass with the note
+  "bold type ... was not checked automatically"; `False` -> review; `True` -> pass. Reporting
+  every label as review until a detector exists would hide real problems behind noise. When
+  Phase 12 lands, "unknown" becomes review.
+- **One canonical text:** `STANDARD_GOVERNMENT_WARNING` in `schemas.py`. The check compares
+  against `ApplicationData.government_warning`, which defaults to it.
+- **`compare.py` helpers are public** (`make_result`, `downgrade_if_unsure`) so the warning
+  check reuses the same result building and low-confidence rule.

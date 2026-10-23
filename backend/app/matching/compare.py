@@ -39,7 +39,7 @@ def _says(found: str, expected: str) -> str:
     return f'Label says "{collapse_whitespace(found)}", application says "{expected}"'
 
 
-def _result(
+def make_result(
     field: FieldName,
     status: Status,
     expected: str,
@@ -58,7 +58,7 @@ def _result(
 
 
 def _not_found(field: FieldName, expected: str, confidence: float) -> FieldResult:
-    return _result(
+    return make_result(
         field,
         Status.FAIL,
         expected,
@@ -68,7 +68,7 @@ def _not_found(field: FieldName, expected: str, confidence: float) -> FieldResul
     )
 
 
-def _downgrade_if_unsure(result: FieldResult, thresholds: MatchThresholds) -> FieldResult:
+def downgrade_if_unsure(result: FieldResult, thresholds: MatchThresholds) -> FieldResult:
     """Low OCR confidence turns a pass into review. It never causes a fail on its own."""
     if result.status is not Status.PASS or result.confidence >= thresholds.low_ocr_confidence:
         return result
@@ -96,7 +96,7 @@ def compare_text(
         return _not_found(field, expected, confidence)
 
     def result(status: Status, reason: str | None = None) -> FieldResult:
-        return _result(field, status, expected, found, confidence, reason)
+        return make_result(field, status, expected, found, confidence, reason)
 
     says = _says(found, expected)
     # Curly vs straight quotes, line breaks and repeated spaces are not real differences.
@@ -125,7 +125,7 @@ def compare_text(
             )
         else:
             outcome = result(Status.FAIL, f"{says} - these do not match")
-    return _downgrade_if_unsure(outcome, thresholds)
+    return downgrade_if_unsure(outcome, thresholds)
 
 
 def _proof_conflict(value: AlcoholContent, tolerance: float) -> str | None:
@@ -152,7 +152,7 @@ def compare_alcohol_content(
         return _not_found(field, expected, confidence)
 
     def result(status: Status, reason: str | None = None) -> FieldResult:
-        return _result(field, status, expected, found, confidence, reason)
+        return make_result(field, status, expected, found, confidence, reason)
 
     label_value = parse_abv(found)
     application_value = parse_abv(expected)
@@ -185,7 +185,7 @@ def compare_alcohol_content(
     converted = label_value.abv_percent is None and application_value.abv_percent is not None
     if converted and label_value.proof is not None:
         reason = f"Label gives {_fmt(label_value.proof)} proof, which equals {_fmt(label_abv)}% ABV"
-    return _downgrade_if_unsure(result(Status.PASS, reason), thresholds)
+    return downgrade_if_unsure(result(Status.PASS, reason), thresholds)
 
 
 def compare_net_contents(
@@ -200,7 +200,7 @@ def compare_net_contents(
         return _not_found(field, expected, confidence)
 
     def result(status: Status, reason: str | None = None) -> FieldResult:
-        return _result(field, status, expected, found, confidence, reason)
+        return make_result(field, status, expected, found, confidence, reason)
 
     label_value = parse_net_contents(found)
     application_value = parse_net_contents(expected)
@@ -225,4 +225,4 @@ def compare_net_contents(
     reason = None
     if label_value.unit != application_value.unit:
         reason = f"Same volume in different units ({_says(found, expected)})"
-    return _downgrade_if_unsure(result(Status.PASS, reason), thresholds)
+    return downgrade_if_unsure(result(Status.PASS, reason), thresholds)
