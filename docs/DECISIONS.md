@@ -38,3 +38,37 @@ Each entry: what we chose, why, and what it costs.
   that every non-pass result explains itself in plain English.
 - **The standard warning text lives in `schemas.py`** as `STANDARD_GOVERNMENT_WARNING`, the
   default for `ApplicationData.government_warning` and the reference for the warning check.
+
+## Normalization and parsing
+
+- **Normalization is a set of small steps, not one function.** `normalize_case` (unicode,
+  case, whitespace) keeps punctuation, while `match_key` also strips punctuation and folds OCR
+  look-alikes. Comparison can apply them in turn and name the difference ("differs only in
+  capitalization" vs "only in punctuation"). Normalized text is only ever a matching key;
+  reasons quote the original strings.
+- **Apostrophes and periods are deleted; other punctuation becomes a space.** So
+  "Stone's" == "Stones", "U.S.A." == "USA", "Single-Barrel" == "Single Barrel". Symbols such as
+  (R) and TM are dropped. `&` is not treated as "and"; that difference falls through to fuzzy
+  matching and lands in review.
+- **OCR look-alikes (0->o, 1->l, |->l) are folded only inside tokens that contain letters.**
+  "THR0W" matches "THROW", but "1792" stays a number. This misses a fully misread word made only
+  of digits, which is rare and safer to leave as a visible difference.
+- **ABV: a percentage next to an alcohol word wins over a bare percentage.** Without this,
+  "100% Blue Agave ... 40% Alc/Vol" would read as 100%. If only a bare percentage exists it is
+  used, and "ABV 45" (OCR dropped the %) is accepted as a last resort.
+- **ABV and proof are parsed independently and not reconciled.** `45% (100 proof)` returns
+  both numbers; deciding that they disagree is the comparison step's job. Values outside
+  0-100% ABV or 0-200 proof are ignored as misreads. Proof is US proof (2 x ABV). "Proof 90"
+  with the number after the word is not recognized.
+- **Net contents use the first number followed by a volume unit,** so "Contents 750 mL
+  (25.4 fl oz)" gives 750 mL and "12 x 355 mL" gives 355 mL. Plain "oz" is treated as fluid
+  ounces (US fl oz, 29.5735 mL), and pint/quart/gallon are US measures. Combined forms like
+  "1 PINT 9.4 FL OZ" read as 1 pint only.
+- **A comma is a decimal mark unless exactly three digits follow it** ("40,5%" is 40.5,
+  "1,000 mL" is 1000). "1,500 mL" is ambiguous in Europe; we read it as 1500.
+- **A leading dash is a separator, not a minus sign** ("Bourbon -45%" is 45%). Zero and
+  negative volumes are rejected.
+- **Converted volumes are floats** (25.4 fl oz = 751.2 mL). The tolerance for "the same
+  volume" belongs in comparison, not the parser.
+- **Parsers return None on unusable input and never raise.** Covered by table tests plus a
+  random-input fuzz run (50,000 strings) done during development.
