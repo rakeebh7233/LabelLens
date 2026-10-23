@@ -33,6 +33,8 @@ class Settings:
     max_upload_mb: int
     # Images are downscaled so their long edge is at most this many pixels before OCR.
     max_image_edge: int
+    # Below this mean OCR confidence (0-1), retry with another layout mode and heavier cleanup.
+    ocr_retry_confidence: float
     # Size of the worker pool used for batch jobs.
     batch_workers: int
     # Explicit path to the tesseract binary; None means look it up on PATH.
@@ -49,6 +51,7 @@ def get_settings() -> Settings:
     return Settings(
         max_upload_mb=int(os.getenv("LABELLENS_MAX_UPLOAD_MB", "10")),
         max_image_edge=int(os.getenv("LABELLENS_MAX_IMAGE_EDGE", "1600")),
+        ocr_retry_confidence=float(os.getenv("LABELLENS_OCR_RETRY_CONFIDENCE", "0.75")),
         batch_workers=int(os.getenv("LABELLENS_BATCH_WORKERS", str(min(4, os.cpu_count() or 1)))),
         tesseract_cmd=os.getenv("LABELLENS_TESSERACT_CMD") or None,
         enable_llm_fallback=_env_bool("LABELLENS_ENABLE_LLM_FALLBACK", False),

@@ -135,3 +135,41 @@ Each entry: what we chose, why, and what it costs.
   against `ApplicationData.government_warning`, which defaults to it.
 - **`compare.py` helpers are public** (`make_result`, `downgrade_if_unsure`) so the warning
   check reuses the same result building and low-confidence rule.
+
+## OCR and preprocessing
+
+- **Two passes, the second only when needed.** `basic` (downscale to 1600px, grayscale,
+  CLAHE) always runs, followed by one OCR call. `heavy` (glare inpaint, lighting flatten,
+  deskew, adaptive threshold) runs only if the first reading is rejected; then the
+  better-scoring reading wins. Measured locally on a synthetic label: clean 0.4 s,
+  10-degree rotation about 1.0 s.
+- **Mean confidence alone is a weak retry trigger.** Measured: a label rotated -7 degrees read
+  at 0.91 confidence with the brand garbled ("ST ONE'S I HROWw"), and a shadowed label read at
+  0.95 with half of each line missing. Tesseract is confident about what it read and silently
+  drops what it could not. So `read_label` takes an `accept` check. The default is mean
+  confidence >= 0.75 (`LABELLENS_OCR_RETRY_CONFIDENCE`); the verify service (Phase 6) will
+  pass "every field matches on this reading", so the retry runs exactly when it could change
+  the outcome.
+- **Readings are compared by score, not mean confidence.** Score = sum of word length x
+  confidence. Mean confidence would prefer a reading that found three easy words over one that
+  found the whole label.
+- **Tesseract tries psm 6 (uniform block), then psm 11 (sparse text) if confidence is low.**
+  It keeps the higher score.
+- **Deskew uses a projection-profile search** (coarse 1-degree steps over +/-15 degrees, then
+  0.2-degree refinement, on an 800px copy, about 50 ms) instead of minAreaRect, which label
+  borders and artwork throw off. Skew under 0.5 degrees is left alone. Larger rotations
+  (sideways or upside-down photos) are not handled; phone EXIF orientation is applied on
+  decode.
+- **Glare:** pixels >= 250 covering 0.05%-25% of the image are inpainted, then the background
+  is divided out. More than 25% is assumed to be a white label, not glare. Text fully washed out
+  by glare cannot be recovered. On the synthetic glare sample the heavy pass reads worse than
+  the basic one and the score correctly keeps the basic reading.
+- **`ocr/reader.py` is an addition to the planned layout.** The retry loop needs both
+  preprocessing and the engine, so it lives in neither; `preprocess.py` stays pure image
+  functions and `engine.py` stays the swappable interface.
+- **The Tesseract path is a pytesseract module-level setting.** It is set once from
+  `LABELLENS_TESSERACT_CMD` when the engine is built. This is the one piece of
+  library-owned global state.
+- **Tests use Pillow-rendered labels** (DejaVu fonts, falling back to Pillow's built-in font)
+  damaged by rotation, blur, glare and shadow. They are only a proxy for real photos. Tests
+  that need Tesseract skip when it is not installed.
