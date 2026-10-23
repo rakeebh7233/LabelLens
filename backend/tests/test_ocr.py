@@ -141,6 +141,17 @@ def test_pipeline_improves_or_preserves_the_basic_reading(
     assert pipeline.ocr.score >= basic_only.score
 
 
+@pytest.mark.parametrize("damage", [with_glare, lambda i: with_glare(rotated(i, 10))])
+@needs_tesseract
+def test_heavy_pass_reads_glare_labels_better_than_basic(
+    damage: Callable[[np.ndarray], np.ndarray],
+) -> None:
+    """Regression: the heavy pass used to make glare worse (inpainting left outlines)."""
+    engine = TesseractEngine()
+    base = preprocess.basic(damage(CLEAN), 1600).image
+    assert engine.run(preprocess.heavy(base).image).score >= engine.run(base).score
+
+
 @needs_tesseract
 def test_engine_reads_nothing_from_a_blank_image() -> None:
     result = TesseractEngine().run(np.full((300, 300), 255, np.uint8))

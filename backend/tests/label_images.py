@@ -57,9 +57,14 @@ def render_label(
 
 
 def rotated(image: np.ndarray, degrees: float) -> np.ndarray:
+    """Rotate counter-clockwise on a canvas grown to fit, so no text is cut off."""
     height, width = image.shape[:2]
     matrix = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
-    return cv2.warpAffine(image, matrix, (width, height), borderValue=(255, 255, 255))
+    cos, sin = abs(matrix[0, 0]), abs(matrix[0, 1])
+    new_width, new_height = int(height * sin + width * cos), int(height * cos + width * sin)
+    matrix[0, 2] += (new_width - width) / 2
+    matrix[1, 2] += (new_height - height) / 2
+    return cv2.warpAffine(image, matrix, (new_width, new_height), borderValue=(255, 255, 255))
 
 
 def blurred(image: np.ndarray, sigma: float = 2.0) -> np.ndarray:

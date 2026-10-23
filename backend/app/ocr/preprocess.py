@@ -1,4 +1,4 @@
-"""OpenCV preprocessing pipeline (resize cap, grayscale, CLAHE, deskew, glare).
+"""OpenCV preprocessing pipeline (resize cap, grayscale, CLAHE, lighting and glare, deskew).
 
 Small functions on numpy images. `basic` is cheap and always runs; `heavy` adds the slower
 fix-ups and is only used when OCR confidence on the basic image is low (see ocr/reader.py).
@@ -104,13 +104,10 @@ def rotate(gray: np.ndarray, angle: float) -> np.ndarray:
     )
 
 
-def glare_mask(gray: np.ndarray) -> np.ndarray | None:
-    """Mask of blown-out highlight patches, or None when there is no glare worth fixing."""
-    mask = (gray >= _GLARE_LEVEL).astype(np.uint8)
-    share = float(mask.mean())
-    if not _GLARE_MIN_SHARE <= share <= _GLARE_MAX_SHARE:
-        return None
-    return cv2.dilate(mask, np.ones((5, 5), np.uint8))
+def has_glare(gray: np.ndarray) -> bool:
+    """True when blown-out highlight patches cover a share of the image typical of glare."""
+    share = float((gray >= _GLARE_LEVEL).mean())
+    return _GLARE_MIN_SHARE <= share <= _GLARE_MAX_SHARE
 
 
 def flatten_illumination(gray: np.ndarray) -> np.ndarray:
@@ -140,18 +137,17 @@ def basic(image: np.ndarray, max_edge: int) -> Preprocessed:
 
 
 def heavy(gray: np.ndarray) -> Preprocessed:
-    """Slower fix-ups for hard photos: glare repair, lighting flatten, deskew, threshold.
+    """Slower fix-ups for hard photos: lighting flatten (which also evens out glare), deskew,
+    threshold.
 
-    Takes the output of basic(). Glare is repaired before deskew so bright patches do not
-    skew the line search.
+    Takes the output of basic(). Lighting is flattened before deskew so bright patches do not
+    skew the line search. Glare is not inpainted: painting over the hotspot leaves a hard edge
+    that thresholding turns into black outlines through the text, while dividing out the
+    background handles the hotspot's smooth brightness bump on its own.
     """
     result = Preprocessed(gray)
-    image = gray
-    if (mask := glare_mask(image)) is not None:
-        image = cv2.inpaint(image, mask, 3, cv2.INPAINT_TELEA)
-        result.steps.append("glare reduced")
-    image = flatten_illumination(image)
-    result.steps.append("lighting evened out")
+    image = flatten_illumination(gray)
+    result.steps.append("glare evened out" if has_glare(gray) else "lighting evened out")
     angle = estimate_skew(image)
     if _MIN_SKEW_DEG <= abs(angle) <= _MAX_SKEW_DEG:
         image = rotate(image, angle)

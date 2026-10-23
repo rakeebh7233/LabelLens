@@ -139,8 +139,8 @@ Each entry: what we chose, why, and what it costs.
 ## OCR and preprocessing
 
 - **Two passes, the second only when needed.** `basic` (downscale to 1600px, grayscale,
-  CLAHE) always runs, followed by one OCR call. `heavy` (glare inpaint, lighting flatten,
-  deskew, adaptive threshold) runs only if the first reading is rejected; then the
+  CLAHE) always runs, followed by one OCR call. `heavy` (lighting and glare flatten, deskew,
+  adaptive threshold) runs only if the first reading is rejected; then the
   better-scoring reading wins. Measured locally on a synthetic label: clean 0.4 s,
   10-degree rotation about 1.0 s.
 - **Mean confidence alone is a weak retry trigger.** Measured: a label rotated -7 degrees read
@@ -160,10 +160,14 @@ Each entry: what we chose, why, and what it costs.
   borders and artwork throw off. Skew under 0.5 degrees is left alone. Larger rotations
   (sideways or upside-down photos) are not handled; phone EXIF orientation is applied on
   decode.
-- **Glare:** pixels >= 250 covering 0.05%-25% of the image are inpainted, then the background
-  is divided out. More than 25% is assumed to be a white label, not glare. Text fully washed out
-  by glare cannot be recovered. On the synthetic glare sample the heavy pass reads worse than
-  the basic one and the score correctly keeps the basic reading.
+- **Glare is evened out, not inpainted.** The first version inpainted blown-out pixels
+  (>= 250) before flattening. The rendered previews showed that the inpainted patch left a
+  hard edge, which thresholding turned into black outlines through the text, so the heavy pass
+  read glare labels worse than the basic one (score 180 vs 283). Dividing out the background
+  already handles a hotspot's smooth brightness bump: without inpainting, the synthetic glare
+  label scores 295 (the same as a clean label) and the warning is read in full. Glare is still
+  detected (0.05%-25% of pixels >= 250) so the steps list says "glare evened out". Text that
+  glare has fully washed out cannot be recovered by any preprocessing.
 - **`ocr/reader.py` is an addition to the planned layout.** The retry loop needs both
   preprocessing and the engine, so it lives in neither; `preprocess.py` stays pure image
   functions and `engine.py` stays the swappable interface.

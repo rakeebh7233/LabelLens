@@ -16,8 +16,8 @@ Regenerate with `backend/.venv/bin/python scripts/make_ocr_previews.py`.
 | Case | Damage |
 |---|---|
 | 1_clean | none |
-| 2_rotated_10, 3_rotated_-7 | rotated 10 and -7 degrees (test helper clips the corners slightly) |
+| 2_rotated_10, 3_rotated_-7 | rotated 10 and -7 degrees on a canvas grown to fit |
 | 4_blurred | Gaussian blur, sigma 2 |
-| 5_glare | grey paper with a bright hotspot; the heavy pass currently leaves outline artifacts here |
+| 5_glare | grey paper with a bright hotspot |
 | 6_dim_uneven | shadow darkening toward the right edge |
-| 7_rotated_glare | rotation and glare together |
+| 7_rotated_glare | rotation and glare together; a few words at the hotspot centre stay faint because they are fully washed out |
