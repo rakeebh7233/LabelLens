@@ -72,3 +72,32 @@ Each entry: what we chose, why, and what it costs.
   volume" belongs in comparison, not the parser.
 - **Parsers return None on unusable input and never raise.** Covered by table tests plus a
   random-input fuzz run (50,000 strings) done during development.
+
+## Comparison rules
+
+- **Text fields check from strictest to loosest; the first check that holds decides.** Whitespace
+  and curly vs straight quotes -> pass. Case only, punctuation only, or both -> review, with the
+  reason naming which. Same after OCR look-alike folding -> review ("may be misread"). rapidfuzz
+  ratio >= 90 on the matching keys -> review with the similarity. Anything else -> fail. Ordering
+  this way gives the most specific reason available instead of a bare score.
+- **Whitespace-only differences pass.** OCR breaks long brand names across lines, so treating
+  "Old\nTom" as a difference would flood agents with noise.
+- **Thresholds live in `MatchThresholds` (config.py)** and are set by environment variables:
+  fuzzy review score (90), low OCR confidence (0.6), net contents tolerance (0.5%). ABV
+  tolerance (0.05 points) only absorbs float rounding and is not exposed.
+- **Low OCR confidence only ever downgrades pass to review,** keeping any existing note (for
+  example a unit conversion). It never turns anything into fail and never upgrades a fail.
+- **A label whose ABV and proof disagree fails; an application that disagrees with itself goes
+  to review.** The label is what is being judged; a typo in the application is the agent's to
+  sort out.
+- **Unparseable values are review, missing values are fail.** If the field was found but no
+  number could be read, the label may be fine and OCR at fault, so a person should look. If the
+  field is absent, that is a clear problem.
+- **Volumes within 0.5% are the same.** Needed because 25.4 fl oz (the usual US declaration
+  for 750 mL) converts to 751.2 mL. 0.5% of 750 mL is about 3.75 mL, well below any real size
+  difference (700 vs 750 mL is 6.7%). A unit conversion passes with an informational reason.
+- **A pass may carry a reason** when it explains something useful (a proof-to-ABV or unit
+  conversion). The UI should show it as a note, not a problem.
+- **Thresholds are passed explicitly.** Comparison functions default to the built-in
+  `MatchThresholds()`; the verify service (Phase 6) must pass `get_settings().thresholds` so
+  environment overrides take effect.

@@ -16,6 +16,18 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 @dataclass(frozen=True)
+class MatchThresholds:
+    # rapidfuzz ratio (0-100) at or above which a non-identical brand or class/type is "review".
+    fuzzy_review: float = 90.0
+    # OCR confidence (0-1) below which a matching field is downgraded from pass to review.
+    low_ocr_confidence: float = 0.6
+    # Volumes within this percentage count as the same (25.4 fl oz is 751.2 mL, not 750).
+    net_contents_tolerance_pct: float = 0.5
+    # ABV values (in percentage points) closer than this are equal; absorbs float rounding.
+    abv_tolerance: float = 0.05
+
+
+@dataclass(frozen=True)
 class Settings:
     # Uploads larger than this are rejected with a plain-language error.
     max_upload_mb: int
@@ -29,6 +41,7 @@ class Settings:
     enable_llm_fallback: bool
     # Built frontend served at "/" when it exists.
     frontend_dist: Path
+    thresholds: MatchThresholds
 
 
 @lru_cache
@@ -40,4 +53,9 @@ def get_settings() -> Settings:
         tesseract_cmd=os.getenv("LABELLENS_TESSERACT_CMD") or None,
         enable_llm_fallback=_env_bool("LABELLENS_ENABLE_LLM_FALLBACK", False),
         frontend_dist=Path(os.getenv("LABELLENS_FRONTEND_DIST", str(_REPO_ROOT / "frontend" / "dist"))),
+        thresholds=MatchThresholds(
+            fuzzy_review=float(os.getenv("LABELLENS_FUZZY_REVIEW_THRESHOLD", "90")),
+            low_ocr_confidence=float(os.getenv("LABELLENS_LOW_OCR_CONFIDENCE", "0.6")),
+            net_contents_tolerance_pct=float(os.getenv("LABELLENS_NET_CONTENTS_TOLERANCE_PCT", "0.5")),
+        ),
     )
