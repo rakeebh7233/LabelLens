@@ -63,7 +63,9 @@ class FieldResult(BaseModel):
     found: str | None
     # Plain-English explanation an agent can read at a glance. Required for review and fail.
     reason: str | None = None
-    confidence: float = Field(ge=0, le=1)
+    # How sure OCR was of the text it read for this field (0-1; the weakest word). This is
+    # not similarity to the application: sharp text that says the wrong thing scores high.
+    ocr_confidence: float = Field(ge=0, le=1)
 
     @model_validator(mode="after")
     def _non_pass_needs_reason(self) -> Self:

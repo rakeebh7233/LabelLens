@@ -53,7 +53,7 @@ def make_result(
         expected=expected,
         found=collapse_whitespace(found) if found is not None else None,
         reason=reason,
-        confidence=confidence,
+        ocr_confidence=confidence,
     )
 
 
@@ -75,9 +75,9 @@ def downgrade_if_unsure(result: FieldResult, thresholds: MatchThresholds) -> Fie
     - fail on text that was found -> review: the mismatch may be a misreading (glare, blur).
     - fail because the field was not found at all stays fail.
     """
-    if result.confidence >= thresholds.low_ocr_confidence or result.status is Status.REVIEW:
+    if result.ocr_confidence >= thresholds.low_ocr_confidence or result.status is Status.REVIEW:
         return result
-    shown = f"OCR confidence {result.confidence:.0%}"
+    shown = f"OCR confidence {result.ocr_confidence:.0%}"
     if result.status is Status.PASS:
         note = (
             f"Matches the application, but the label text was hard to read ({shown}) "

@@ -19,7 +19,7 @@ P, R, F = Status.PASS, Status.REVIEW, Status.FAIL
 def _field(status: Status, name: FieldName = FieldName.BRAND_NAME) -> FieldResult:
     reason = None if status is Status.PASS else "Label differs from application"
     return FieldResult(
-        field=name, status=status, expected="X", found="X", reason=reason, confidence=0.9
+        field=name, status=status, expected="X", found="X", reason=reason, ocr_confidence=0.9
     )
 
 
@@ -100,10 +100,10 @@ def test_overall_status_is_serialized() -> None:
 
 
 @pytest.mark.parametrize("confidence", [-0.1, 1.01])
-def test_confidence_must_be_between_0_and_1(confidence: float) -> None:
+def test_ocr_confidence_must_be_between_0_and_1(confidence: float) -> None:
     with pytest.raises(ValidationError):
         FieldResult(
-            field=FieldName.BRAND_NAME, status=P, expected="X", found="X", confidence=confidence
+            field=FieldName.BRAND_NAME, status=P, expected="X", found="X", ocr_confidence=confidence
         )
 
 
@@ -117,13 +117,13 @@ def test_non_pass_requires_reason(status: Status, reason: str | None) -> None:
             expected="X",
             found="Y",
             reason=reason,
-            confidence=0.5,
+            ocr_confidence=0.5,
         )
 
 
 def test_pass_needs_no_reason() -> None:
     result = FieldResult(
-        field=FieldName.BRAND_NAME, status=P, expected="X", found="X", confidence=1.0
+        field=FieldName.BRAND_NAME, status=P, expected="X", found="X", ocr_confidence=1.0
     )
     assert result.reason is None
 
@@ -135,7 +135,7 @@ def test_found_may_be_missing() -> None:
         expected="750 mL",
         found=None,
         reason="Net contents not found on the label",
-        confidence=0.0,
+        ocr_confidence=0.0,
     )
     assert result.found is None
 
