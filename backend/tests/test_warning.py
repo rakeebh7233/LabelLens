@@ -169,8 +169,19 @@ def test_low_confidence_downgrades_pass_to_review() -> None:
     assert result.reason is not None and "hard to read (OCR confidence 30%)" in result.reason
 
 
-def test_low_confidence_leaves_wording_fail_alone() -> None:
-    assert check_warning(SENTENCE_1, 0.1).status is F
+def test_low_confidence_wording_fail_becomes_review() -> None:
+    """On a barely readable photo a "missing" sentence may just not have been read."""
+    result = check_warning(SENTENCE_1, 0.1)
+    assert result.status is R
+    assert result.reason is not None and "may be a misreading" in result.reason
+
+
+def test_confident_wording_fail_stays_fail() -> None:
+    assert check_warning(SENTENCE_1, SURE).status is F
+
+
+def test_absent_warning_stays_fail_at_low_confidence() -> None:
+    assert check_warning("OLD TOM BOURBON 45% ALC/VOL", 0.1).status is F
 
 
 def test_low_confidence_threshold_comes_from_thresholds() -> None:

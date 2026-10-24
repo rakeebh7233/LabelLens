@@ -77,6 +77,10 @@ class LabelResult(BaseModel):
     filename: str | None = None
     fields: list[FieldResult]
     timings_ms: dict[str, float] = Field(default_factory=dict)
+    # Plain-language image fix-ups applied before OCR, e.g. "straightened by 10.0°".
+    preprocessing: list[str] = Field(default_factory=list)
+    # Mean OCR word confidence (0-1) for the reading the results are based on.
+    ocr_confidence: float | None = Field(default=None, ge=0, le=1)
     # Non-fatal notes such as "Image is blurry; results may be less reliable".
     warnings: list[str] = Field(default_factory=list)
     # Set when the label could not be processed at all (e.g. unreadable image).

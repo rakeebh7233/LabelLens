@@ -33,20 +33,25 @@ class OcrResult:
     words: tuple[OcrWord, ...]
     # Mean word confidence, 0-1; 0 when nothing was read.
     mean_confidence: float
-    # Engine-specific note on how the text was read, e.g. "psm 6".
+    # Engine-specific note on how the text was read, e.g. "psm 3".
     mode: str = ""
 
     @property
-    def text(self) -> str:
-        """Words joined by spaces, lines by newlines (later steps rely on the line breaks)."""
-        lines: list[list[str]] = []
+    def lines(self) -> list[tuple[OcrWord, ...]]:
+        """Words grouped into text lines, in reading order."""
+        lines: list[list[OcrWord]] = []
         previous: tuple[int, int, int] | None = None
         for word in self.words:
             if word.line_id != previous:
                 lines.append([])
                 previous = word.line_id
-            lines[-1].append(word.text)
-        return "\n".join(" ".join(line) for line in lines)
+            lines[-1].append(word)
+        return [tuple(line) for line in lines]
+
+    @property
+    def text(self) -> str:
+        """Words joined by spaces, lines by newlines (later steps rely on the line breaks)."""
+        return "\n".join(" ".join(w.text for w in line) for line in self.lines)
 
     @property
     def score(self) -> float:
@@ -70,9 +75,10 @@ def _mean(values: list[float]) -> float:
 class TesseractEngine:
     """Tesseract via pytesseract. Local only; no network calls.
 
-    Reads with page segmentation mode 6 (one uniform block of text) first. If confidence is
-    low it retries with mode 11 (sparse text, suits scattered label layouts) and keeps the
-    reading with the higher score.
+    Reads with page segmentation mode 3 (automatic layout) first. If confidence is low it
+    retries with mode 11 (sparse text, suits scattered label layouts) and keeps the reading
+    with the higher score. Mode 6 (one uniform block) is avoided: it silently drops large
+    headline text such as a brand name wrapped over two lines.
     """
 
     name = "tesseract"
@@ -82,7 +88,7 @@ class TesseractEngine:
         tesseract_cmd: str | None = None,
         retry_below: float = 0.75,
         timeout_s: float = 20,
-        modes: tuple[int, ...] = (6, 11),
+        modes: tuple[int, ...] = (3, 11),
     ) -> None:
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd

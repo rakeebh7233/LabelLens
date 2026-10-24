@@ -85,8 +85,11 @@ Each entry: what we chose, why, and what it costs.
 - **Thresholds live in `MatchThresholds` (config.py)** and are set by environment variables:
   fuzzy review score (90), low OCR confidence (0.6), net contents tolerance (0.5%). ABV
   tolerance (0.05 points) only absorbs float rounding and is not exposed.
-- **Low OCR confidence only ever downgrades pass to review,** keeping any existing note (for
-  example a unit conversion). It never turns anything into fail and never upgrades a fail.
+- **Low OCR confidence never causes a fail.** It turns pass into review, keeping any existing
+  note (for example a unit conversion). *Revised in Phase 6:* it also turns a fail on text
+  that *was found* into review ("may be a misreading"), because glare or blur can garble a
+  correct label. A field that was not found at all, or a mismatch in clearly read text, still
+  fails.
 - **A label whose ABV and proof disagree fails; an application that disagrees with itself goes
   to review.** The label is what is being judged; a typo in the application is the agent's to
   sort out.
@@ -153,8 +156,12 @@ Each entry: what we chose, why, and what it costs.
 - **Readings are compared by score, not mean confidence.** Score = sum of word length x
   confidence. Mean confidence would prefer a reading that found three easy words over one that
   found the whole label.
-- **Tesseract tries psm 6 (uniform block), then psm 11 (sparse text) if confidence is low.**
-  It keeps the higher score.
+- **Tesseract tries psm 3 (automatic layout), then psm 11 (sparse text) if confidence is
+  low,** keeping the higher score. *Revised in Phase 6:* the first version started with psm 6
+  (one uniform block), which silently dropped large headline text. "OLD TOM DISTILLERY" at
+  96px, wrapped over two lines, was missing from the reading while confidence stayed at
+  0.96. Measured on five synthetic labels: psm 6 read the brand on 1 of 5, psm 3/4/11 on 5 of
+  5, all at about 300 ms.
 - **Deskew uses a projection-profile search** (coarse 1-degree steps over +/-15 degrees, then
   0.2-degree refinement, on an 800px copy, about 50 ms) instead of minAreaRect, which label
   borders and artwork throw off. Skew under 0.5 degrees is left alone. Larger rotations
@@ -177,3 +184,39 @@ Each entry: what we chose, why, and what it costs.
 - **Tests use Pillow-rendered labels** (DejaVu fonts, falling back to Pillow's built-in font)
   damaged by rotation, blur, glare and shadow. They are only a proxy for real photos. Tests
   that need Tesseract skip when it is not installed.
+
+## Field extraction and the verify service
+
+- **Search for the expected value instead of guessing the field.** Brand and class/type are
+  found by scoring every run of consecutive OCR words (the expected length +/- 2 words, so OCR
+  splits like "STONE' S" still match, and runs may cross line breaks) against the expected
+  value with rapidfuzz. Under a score of 60 the value is treated as absent and a fallback
+  runs: the tallest line in the top half for the brand, the first line with a beverage word
+  for class/type. The fallback means a wrong label reads `Label says "HARBOR LIGHT"` instead of
+  just "not found".
+- **The government warning is excluded from the text search** (from "GOVERNMENT WARNING" for
+  the length of the standard text), so a short class like "Wine" cannot match "women".
+- **Numbers: every line is parsed and the one closest to the expected value wins.** For ABV,
+  a separate proof-only line is joined on, so a label whose ABV and proof disagree is still
+  caught. Choosing the closest value means a label that prints a second, different ABV
+  somewhere else would not be flagged; that is unusual enough to accept.
+- **A found value's confidence is its weakest word, not the mean.** On the glare sample,
+  "Bourbon" at 0.92 beside a garbled word at 0.33 averaged to 0.79 and looked trustworthy.
+- **The warning is judged with the whole reading's mean confidence,** since it spans many
+  lines. A per-word measure would need the located block's words, not just its text.
+- **Retry trigger: "every field passes on this reading".** `verify` passes this as the
+  `accept` check to `read_label`, so a clean label costs one OCR pass. The retry runs exactly
+  when a second, cleaner reading could change the outcome. A label with a real defect is
+  always read twice (about 0.3-0.5 s extra), which is a fair price for not failing a good
+  label because of a bad photo. Measured locally: perfect label 0.3-0.5 s; defects,
+  rotation, glare and shadow 0.6-1.3 s.
+- **Errors become results, never exceptions.** An unreadable file, an OCR failure, or any
+  unexpected error returns a `LabelResult` with `error` set (overall fail) and a plain
+  message. Unexpected errors are logged with the stack trace, which is never shown to the
+  user.
+- **No text found is not an error.** A blank image gives every field "not found" (fail) plus
+  the hint "No text could be found on this image...". A reading under the low-confidence
+  threshold adds "The photo was hard to read...".
+- **`LabelResult` gained `preprocessing` (plain-language steps) and `ocr_confidence`,** so
+  the UI can show what was done to the photo.
+- **Bold is passed as "not checked" (`prefix_bold=None`)** until Phase 12.

@@ -154,6 +154,14 @@ def compare_warning(
 
     prefix_bold is the bold detector's verdict: True, False, or None when bold was not checked.
     """
+    result = _judge(found, confidence, collapse_whitespace(expected), prefix_bold)
+    return downgrade_if_unsure(result, thresholds)
+
+
+def _judge(
+    found: str | None, confidence: float, expected: str, prefix_bold: bool | None
+) -> FieldResult:
+    """The strict wording, prefix and bold rules; see compare_warning."""
     field = FieldName.GOVERNMENT_WARNING
 
     def result(status: Status, reason: str | None = None) -> FieldResult:
@@ -162,7 +170,6 @@ def compare_warning(
     if found is None or not found.strip():
         return result(Status.FAIL, "No government warning statement found on the label")
     found = prepare(found)
-    expected = collapse_whitespace(expected)
 
     if expected.startswith(PREFIX) and (problem := _prefix_problem(found)):
         return result(Status.FAIL, problem)
@@ -208,7 +215,7 @@ def compare_warning(
     reason = None
     if prefix_bold is None:
         reason = f'Wording matches; bold type of "{PREFIX}" was not checked automatically'
-    return downgrade_if_unsure(result(Status.PASS, reason), thresholds)
+    return result(Status.PASS, reason)
 
 
 def check_warning(

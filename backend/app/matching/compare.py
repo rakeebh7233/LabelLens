@@ -69,13 +69,27 @@ def _not_found(field: FieldName, expected: str, confidence: float) -> FieldResul
 
 
 def downgrade_if_unsure(result: FieldResult, thresholds: MatchThresholds) -> FieldResult:
-    """Low OCR confidence turns a pass into review. It never causes a fail on its own."""
-    if result.status is not Status.PASS or result.confidence >= thresholds.low_ocr_confidence:
+    """Apply low OCR confidence: it never causes a fail, and it softens a fail it may explain.
+
+    - pass -> review: the match may be luck, so a person should confirm.
+    - fail on text that was found -> review: the mismatch may be a misreading (glare, blur).
+    - fail because the field was not found at all stays fail.
+    """
+    if result.confidence >= thresholds.low_ocr_confidence or result.status is Status.REVIEW:
         return result
-    note = (
-        f"Matches the application, but the label text was hard to read "
-        f"(OCR confidence {result.confidence:.0%}) - please confirm by eye"
-    )
+    shown = f"OCR confidence {result.confidence:.0%}"
+    if result.status is Status.PASS:
+        note = (
+            f"Matches the application, but the label text was hard to read ({shown}) "
+            "- please confirm by eye"
+        )
+    elif result.found is not None:
+        note = (
+            f"The label text was hard to read ({shown}), so this may be a misreading "
+            "- check the label"
+        )
+    else:
+        return result
     reason = f"{result.reason}. {note}" if result.reason else note
     return result.model_copy(update={"status": Status.REVIEW, "reason": reason})
 
@@ -140,13 +154,13 @@ def _proof_conflict(value: AlcoholContent, tolerance: float) -> str | None:
     )
 
 
-def compare_alcohol_content(
+def _compare_alcohol_content(
     expected: str,
     found: str | None,
     confidence: float,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
-    """Compare ABV numerically, converting proof (US proof = 2 x ABV) where needed."""
+    """See compare_alcohol_content."""
     field = FieldName.ALCOHOL_CONTENT
     if found is None or not found.strip():
         return _not_found(field, expected, confidence)
@@ -185,16 +199,16 @@ def compare_alcohol_content(
     converted = label_value.abv_percent is None and application_value.abv_percent is not None
     if converted and label_value.proof is not None:
         reason = f"Label gives {_fmt(label_value.proof)} proof, which equals {_fmt(label_abv)}% ABV"
-    return downgrade_if_unsure(result(Status.PASS, reason), thresholds)
+    return result(Status.PASS, reason)
 
 
-def compare_net_contents(
+def _compare_net_contents(
     expected: str,
     found: str | None,
     confidence: float,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
-    """Compare volumes in mL so 750 mL, 75 cL and 0.75 L are equal."""
+    """See compare_net_contents."""
     field = FieldName.NET_CONTENTS
     if found is None or not found.strip():
         return _not_found(field, expected, confidence)
@@ -225,4 +239,26 @@ def compare_net_contents(
     reason = None
     if label_value.unit != application_value.unit:
         reason = f"Same volume in different units ({_says(found, expected)})"
-    return downgrade_if_unsure(result(Status.PASS, reason), thresholds)
+    return result(Status.PASS, reason)
+
+
+def compare_alcohol_content(
+    expected: str,
+    found: str | None,
+    confidence: float,
+    thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
+) -> FieldResult:
+    """Compare ABV numerically, converting proof (US proof = 2 x ABV) where needed."""
+    result = _compare_alcohol_content(expected, found, confidence, thresholds)
+    return downgrade_if_unsure(result, thresholds)
+
+
+def compare_net_contents(
+    expected: str,
+    found: str | None,
+    confidence: float,
+    thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
+) -> FieldResult:
+    """Compare volumes in mL so 750 mL, 75 cL and 0.75 L are equal."""
+    result = _compare_net_contents(expected, found, confidence, thresholds)
+    return downgrade_if_unsure(result, thresholds)

@@ -2,7 +2,7 @@ import pytest
 
 from app.config import MatchThresholds
 from app.matching.compare import compare_alcohol_content, compare_net_contents, compare_text
-from app.schemas import FieldName, Status
+from app.schemas import FieldName, FieldResult, Status
 
 P, R, F = Status.PASS, Status.REVIEW, Status.FAIL
 BRAND = FieldName.BRAND_NAME
@@ -89,9 +89,35 @@ def test_low_confidence_downgrades_pass_to_review(compare, expected: str, found:
     assert "hard to read (OCR confidence 30%)" in result.reason
 
 
-def test_low_confidence_never_causes_fail_and_leaves_fail_alone() -> None:
+def test_low_confidence_never_causes_fail() -> None:
     assert compare_text(BRAND, "Old Tom", "old tom", 0.1).status is R
-    assert compare_text(BRAND, "Old Tom", "Rock Toss", 0.1).status is F
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        compare_text(BRAND, "Old Tom", "Rock Toss", 0.3),
+        compare_alcohol_content("45% ABV", "40% ABV", 0.3),
+        compare_net_contents("750 mL", "700 mL", 0.3),
+    ],
+)
+def test_low_confidence_mismatch_is_review_as_a_possible_misreading(result: FieldResult) -> None:
+    """Glare or blur can garble a correct label; a person decides rather than an auto-fail."""
+    assert result.status is R
+    assert result.reason is not None
+    assert result.reason.endswith(
+        "The label text was hard to read (OCR confidence 30%), so this may be a misreading "
+        "- check the label"
+    )
+
+
+def test_clearly_read_mismatch_stays_fail() -> None:
+    assert compare_text(BRAND, "Old Tom", "Rock Toss", SURE).status is F
+
+
+def test_missing_field_stays_fail_even_at_low_confidence() -> None:
+    assert compare_text(BRAND, "Old Tom", None, 0.0).status is F
+    assert compare_net_contents("750 mL", None, 0.0).status is F
 
 
 def test_low_confidence_threshold_is_configurable() -> None:
