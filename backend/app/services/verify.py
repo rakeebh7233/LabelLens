@@ -9,6 +9,8 @@ import time
 import uuid
 from functools import lru_cache
 
+import numpy as np
+
 from app.config import Settings, get_settings
 from app.extract import fields
 from app.extract.warning import check_warning_in
@@ -37,9 +39,15 @@ def get_engine() -> OcrEngine:
 
 
 def compare_fields(
-    application: ApplicationData, ocr: OcrResult, settings: Settings
+    application: ApplicationData,
+    ocr: OcrResult,
+    settings: Settings,
+    image: np.ndarray | None = None,
 ) -> list[FieldResult]:
-    """Compare every field against one OCR reading. Pure apart from the inputs."""
+    """Compare every field against one OCR reading. Pure apart from the inputs.
+
+    `image` is the one OCR ran on; without it the warning's bold type is not checked.
+    """
     thresholds = settings.thresholds
 
     def located(found: fields.Found | None) -> tuple[str | None, float]:
@@ -54,7 +62,7 @@ def compare_fields(
         compare_text(FieldName.CLASS_TYPE, application.class_type, *class_type, thresholds),
         compare_alcohol_content(application.alcohol_content, *alcohol, thresholds),
         compare_net_contents(application.net_contents, *net, thresholds),
-        check_warning_in(ocr, application.government_warning, None, thresholds),
+        check_warning_in(ocr, application.government_warning, image, thresholds),
     ]
 
 
@@ -99,6 +107,8 @@ def verify_label(
         timings["decode"] = round((time.perf_counter() - step) * 1000, 1)
 
         # Retry with heavier cleanup unless every field already passes on the first reading.
+        # Bold type is left out of this check: the retry changes what OCR reads, but its
+        # black-and-white image is no better for measuring stroke widths.
         def all_fields_pass(ocr: OcrResult) -> bool:
             return all(r.status is Status.PASS for r in compare_fields(application, ocr, settings))
 
@@ -106,13 +116,14 @@ def verify_label(
         timings.update(reading.timings_ms)
 
         step = time.perf_counter()
-        results = compare_fields(application, reading.ocr, settings)
-        steps = reading.steps
-        if reading.alternative:
-            other_ocr, other_steps = reading.alternative
-            merged = best_per_field(results, compare_fields(application, other_ocr, settings))
+        best = reading.best
+        results = compare_fields(application, best.ocr, settings, best.image)
+        steps = best.steps
+        if other := reading.alternative:
+            other_results = compare_fields(application, other.ocr, settings, other.image)
+            merged = best_per_field(results, other_results)
             if merged != results:
-                steps = list(dict.fromkeys(steps + other_steps))
+                steps = list(dict.fromkeys(steps + other.steps))
             results = merged
         timings["compare"] = round((time.perf_counter() - step) * 1000, 1)
     except ImageDecodeError as exc:

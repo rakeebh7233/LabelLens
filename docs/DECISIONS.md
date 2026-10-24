@@ -130,10 +130,9 @@ Each entry: what we chose, why, and what it costs.
   than fail. A person still sees it, and nothing that differs ever passes.
 - **Capitalization in the body is strict.** "surgeon general" fails. A case-only difference
   never counts as an OCR misread.
-- **Bold (interim, until Phase 12).** `prefix_bold=None` (not checked) -> pass with the note
-  "bold type ... was not checked automatically"; `False` -> review; `True` -> pass. Reporting
-  every label as review until a detector exists would hide real problems behind noise. When
-  Phase 12 lands, "unknown" becomes review.
+- **Bold:** bold -> pass; not bold or unknown -> review, never fail (see "Bold detection"
+  below). `prefix_bold=None` now only means the caller had no image (text-only use) and
+  passes with the note "bold type ... was not checked automatically".
 - **One canonical text:** `STANDARD_GOVERNMENT_WARNING` in `schemas.py`. The check compares
   against `ApplicationData.government_warning`, which defaults to it.
 - **`compare.py` helpers are public** (`make_result`, `downgrade_if_unsure`) so the warning
@@ -219,7 +218,7 @@ Each entry: what we chose, why, and what it costs.
   threshold adds "The photo was hard to read...".
 - **`LabelResult` gained `preprocessing` (plain-language steps) and `ocr_confidence`,** so
   the UI can show what was done to the photo.
-- **Bold is passed as "not checked" (`prefix_bold=None`)** until Phase 12.
+- **Bold is checked on the image each OCR pass read** (see "Bold detection").
 
 ## API and batch
 
@@ -294,8 +293,8 @@ Each entry: what we chose, why, and what it costs.
   - 04 "OLD T0M" (zero): **expect pass, accepted limitation.** Tesseract reads the zero as
     the letter O at 0.94 confidence, so no matching rule can see it; a person reading the
     label would struggle too.
-  - 14 prefix not bold: **kept as a known gap** until bold detection (Phase 12, optional)
-    exists. The result says bold was not checked automatically.
+  - 14 prefix not bold: was a known gap until bold detection; **now review as expected**
+    (Phase 12).
   - 15 tiny warning text: **expect fail, accepted as conservative.** OCR reads none of the
     11 px warning, which is indistinguishable from an absent warning. Upscaling in the second
     pass might rescue it, but it was not adopted.
@@ -386,3 +385,54 @@ Each entry: what we chose, why, and what it costs.
   10 s on 4 workers, progress advancing every poll; the corrupt file became a row-level error
   and the other 49 completed. The browser layout itself was not checked in a real browser
   (no headless browser in the dev environment).
+
+## Bold detection
+
+- **Verdicts:** bold -> pass; not bold -> review ("does not look bold. It must be in bold
+  type - check the label"); unknown -> review ("the photo is not clear enough to tell").
+  Never fail: it is a heuristic, and Jenny's rejection of a non-bold prefix is the agent's
+  call on seeing the label. The cost is that a label whose bold cannot be measured needs a
+  look even when everything else matches.
+- **Measurement:** mean stroke width per word = 2 x ink area / outline length (Otsu ink
+  mask), divided by the word's box height; the verdict is the prefix's median over the body's
+  median. **A distance transform was tried first and rejected**: its median ridge value
+  moves in 0.4-0.6 px steps at warning-text sizes (strokes are 2-4 px), and on the samples
+  it called sample 14's regular prefix bold (1.79) and the wine label's bold one regular
+  (0.75). Area over outline measures below a pixel and separated them (1.13 and 1.52).
+- **Normalized by cap height, not x-height** (a deliberate departure from the Phase 12
+  prompt). The prefix is all capitals, so it has no x-height; dividing its cap height by
+  the body's x-height would shrink it by about 1.4x, roughly the whole bold effect. Body
+  words with tall letters and no descenders ("the", "birth", "defects") have box heights
+  close to the cap height and serve as the reference.
+- **Calibration** (OCR boxes from Tesseract; DejaVu Sans and Serif; all 23 samples, both OCR
+  passes):
+  - From 10 px cap height up, bold prefixes measured 1.38-1.88 and regular 0.96-1.19.
+    Samples: bold 1.40-1.79, sample 14 (regular) 1.12-1.13.
+  - At 9 px and below the ratio is noise (a regular prefix measured 1.42 at 9 px).
+  - Thresholds: **bold at 1.30 or more, not bold at 1.22 or less**, unknown between, and
+    **unknown below 12 px cap height**. Only the bold threshold changes an outcome (not
+    bold and unknown are both review), so it sits well above every regular measurement.
+- **Unknown instead of guessing** when: the text is under 12 px; the two prefix words differ
+  in height by more than 1.3x, or the prefix and body heights do (OCR sometimes boxes two
+  lines as one word: a merged box gave 0.36 at small sizes, and sample 19's heavy pass had
+  prefix boxes 40 and 26 px tall); fewer than 3 reference body words; no prefix found.
+- **Measured on the image each OCR pass read**, since the word boxes refer to it. Each
+  reading now carries its image (`reader.Pass`). The retry decision ignores bold: retrying
+  changes what OCR reads, but its black-and-white image is no better for stroke widths.
+  As with other fields, the warning takes the better of the two passes' results.
+- **Cost:** under 1 ms per label.
+- **Sabotage check:** lowering the bold threshold to 1.05 fails 6 tests, including sample 14.
+- **Limitations:**
+  - Assumes the prefix and body are the same typeface at about the same size. A label that
+    sets the prefix in a different, naturally heavier face could read as bold, and one
+    that sets the whole warning in bold reads as not bold (review).
+  - Synthetic labels only (DejaVu fonts, Pillow rendering). Real print, ink spread,
+    embossing, metallic foil and JPEG artefacts are untested; expect more unknowns on real
+    photos.
+  - Text smaller than 12 px cap height in the processed image (about 1600 px long edge)
+    is always unknown. A closer photo of the warning fixes it.
+  - Light-on-dark text is handled by flipping the ink mask; coloured text on a busy
+    background may threshold poorly and come back unknown.
+- **Test helper change:** `tests/label_images.render_label` now prints the prefix in bold,
+  as on a real label (`bold_prefix=False` for the regular version). Before, the whole
+  warning was regular, which the detector correctly reported as not bold.

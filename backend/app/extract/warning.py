@@ -10,10 +10,12 @@ import re
 from collections.abc import Sequence
 from difflib import SequenceMatcher
 
+import numpy as np
 from rapidfuzz import fuzz
 from rapidfuzz.distance import Levenshtein
 
 from app.config import MatchThresholds
+from app.extract.boldness import Boldness, classify_prefix
 from app.matching.compare import DEFAULT_THRESHOLDS, downgrade_if_unsure, make_result
 from app.matching.normalize import collapse_whitespace, fold_unicode
 from app.ocr.engine import OcrResult, OcrWord
@@ -149,19 +151,20 @@ def compare_warning(
     found: str | None,
     confidence: float,
     expected: str = STANDARD_GOVERNMENT_WARNING,
-    prefix_bold: bool | None = None,
+    prefix_bold: Boldness | None = None,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
     """Judge a located warning block strictly against the expected text.
 
-    prefix_bold is the bold detector's verdict: True, False, or None when bold was not checked.
+    prefix_bold is the bold detector's verdict, or None when the caller has no image to check
+    (text-only callers). Bold is only judged once the wording and capitals are right.
     """
     result = _judge(found, confidence, collapse_whitespace(expected), prefix_bold)
     return downgrade_if_unsure(result, thresholds)
 
 
 def _judge(
-    found: str | None, confidence: float, expected: str, prefix_bold: bool | None
+    found: str | None, confidence: float, expected: str, prefix_bold: Boldness | None
 ) -> FieldResult:
     """The strict wording, prefix and bold rules; see compare_warning."""
     field = FieldName.GOVERNMENT_WARNING
@@ -209,10 +212,18 @@ def _judge(
             + _describe_differences(ops, expected_words, found_words),
         )
 
-    if prefix_bold is False:
+    # The detector is a heuristic, so a prefix that does not look bold is the agent's call.
+    if prefix_bold is Boldness.NOT_BOLD:
         return result(
             Status.REVIEW,
-            f'Wording matches, but "{PREFIX}" may not be in bold type - check the label',
+            f'Wording matches, but "{PREFIX}" does not look bold. It must be in bold type '
+            "- check the label",
+        )
+    if prefix_bold is Boldness.UNKNOWN:
+        return result(
+            Status.REVIEW,
+            f'Wording matches, but the photo is not clear enough to tell whether "{PREFIX}" '
+            "is in bold type - check the label",
         )
     reason = None
     if prefix_bold is None:
@@ -224,7 +235,7 @@ def check_warning(
     ocr_text: str,
     confidence: float,
     expected: str = STANDARD_GOVERNMENT_WARNING,
-    prefix_bold: bool | None = None,
+    prefix_bold: Boldness | None = None,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
     """Find and judge the warning in OCR text, with a confidence supplied by the caller."""
@@ -236,36 +247,61 @@ def check_warning(
 _UNSURE_SHARE = 0.2
 
 
-def block_confidence(block: str, words: Sequence[OcrWord]) -> float:
-    """How sure OCR was of the warning block: the 20th-percentile confidence of its words.
-
-    The block's words are aligned back to the OCR words; every word from the first to the last
-    aligned one counts. A mean let a half-garbled warning on curved text look confident (0.74)
-    because the readable words are crisp; the minimum would let one smudged word soften a real
-    rewording to review. The percentile is low exactly when a fifth or more of the words were.
-    """
+def _aligned_span(block: str, words: Sequence[OcrWord]) -> Sequence[OcrWord]:
+    """The OCR words the block was read from: every word from the first to the last aligned."""
     block_tokens = block.casefold().split()
     word_tokens = [fold_unicode(w.text).casefold() for w in words]
     matcher = SequenceMatcher(None, block_tokens, word_tokens, autojunk=False)
     matched = [m for m in matcher.get_matching_blocks() if m.size]
     if not matched:
+        return ()
+    return words[matched[0].b : matched[-1].b + matched[-1].size]
+
+
+def block_confidence(block: str, words: Sequence[OcrWord]) -> float:
+    """How sure OCR was of the warning block: the 20th-percentile confidence of its words.
+
+    A mean let a half-garbled warning on curved text look confident (0.74) because the
+    readable words are crisp; the minimum would let one smudged word soften a real rewording
+    to review. The percentile is low exactly when a fifth or more of the words were.
+    """
+    span = _aligned_span(block, words)
+    if not span:
         return 0.0
-    span = words[matched[0].b : matched[-1].b + matched[-1].size]
     confidences = sorted(w.confidence for w in span)
     return confidences[int(_UNSURE_SHARE * (len(confidences) - 1))]
+
+
+def prefix_and_body(
+    block: str, words: Sequence[OcrWord]
+) -> tuple[Sequence[OcrWord], Sequence[OcrWord]]:
+    """The OCR words of "GOVERNMENT WARNING:" and of the rest of the warning.
+
+    The prefix is empty when the block does not start with those two words.
+    """
+    span = _aligned_span(block, words)
+    head = " ".join(w.text for w in span[:2]).rstrip(":;.,").casefold()
+    if len(span) < 2 or not _similar(head, "government warning"):
+        return (), span
+    return span[:2], span[2:]
 
 
 def check_warning_in(
     ocr: OcrResult,
     expected: str = STANDARD_GOVERNMENT_WARNING,
-    prefix_bold: bool | None = None,
+    image: np.ndarray | None = None,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
     """Find and judge the warning in an OCR reading. Entry point for verify.
 
     Judged with the confidence of the warning's own words, not the whole label's: a crisp
-    brand and a garbled warning must not average out to "confident".
+    brand and a garbled warning must not average out to "confident". With `image` (the one
+    the OCR boxes refer to), the prefix is also checked for bold type.
     """
     found = locate_warning(prepare(ocr.text), collapse_whitespace(expected))
     confidence = block_confidence(found, ocr.words) if found else ocr.mean_confidence
+    prefix_bold = None
+    if found and image is not None:
+        prefix, body = prefix_and_body(found, ocr.words)
+        prefix_bold = classify_prefix(image, prefix, body).status
     return compare_warning(found, confidence, expected, prefix_bold, thresholds)

@@ -58,7 +58,7 @@ never pass).
 Samples whose expected result the pipeline does not produce yet. The regression test
 marks them as expected failures until a decision is made for each.
 
-- `14_warning_not_bold.png`: Bold detection is not implemented (Phase 12, optional), so a regular-weight prefix passes with the note that bold was not checked.
+None.
 
 ## Edge cases (`edge_cases/`)
 

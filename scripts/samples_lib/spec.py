@@ -68,12 +68,8 @@ class LabelSpec:
 # Samples whose expected result the pipeline does not produce yet, and why. Each needs a
 # decision: change the rule, change the sample, or accept the limitation. test_samples.py
 # marks them as strict expected failures, so a change that fixes one is noticed.
-KNOWN_GAPS = {
-    "14_warning_not_bold.png": (
-        "Bold detection is not implemented (Phase 12, optional), so a regular-weight prefix "
-        "passes with the note that bold was not checked"
-    ),
-}
+# Samples whose expected result the pipeline does not produce yet (strict xfail in the tests).
+KNOWN_GAPS: dict[str, str] = {}
 
 
 def warning_text(variant: str) -> str | None:

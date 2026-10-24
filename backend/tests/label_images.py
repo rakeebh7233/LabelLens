@@ -44,8 +44,11 @@ def render_label(
     warning: str = STANDARD_GOVERNMENT_WARNING,
     width: int = 1200,
     height: int = 1500,
+    bold_prefix: bool = True,
+    warning_size: int = 28,
 ) -> np.ndarray:
-    """A clean, front-on label as a BGR image."""
+    """A clean, front-on label as a BGR image. As on a real label, the warning's first two
+    words ("GOVERNMENT WARNING:") are bold unless bold_prefix is False."""
     image = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(image)
     margin, y = 80, 100
@@ -56,10 +59,16 @@ def render_label(
             draw.text((margin, y), line, fill="black", font=font)
             y += int(size * 1.35)
         y += 30
-    font = _font(28)
-    for line in _wrap(draw, warning, font, width - 2 * margin):
-        draw.text((margin, y), line, fill="black", font=font)
-        y += 38
+    regular, bold = _font(warning_size), _font(warning_size, bold=True)
+    space = draw.textlength(" ", font=regular)
+    x, line_height = margin, int(warning_size * 1.35)
+    for i, word in enumerate(warning.split()):
+        font = bold if bold_prefix and i < 2 else regular
+        length = draw.textlength(word, font=font)
+        if x > margin and x + length > width - margin:
+            x, y = margin, y + line_height
+        draw.text((x, y), word, fill="black", font=font)
+        x += length + space
     return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
 
 

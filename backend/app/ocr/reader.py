@@ -14,15 +14,32 @@ from app.ocr import preprocess
 from app.ocr.engine import OcrEngine, OcrResult
 
 
+@dataclass(frozen=True)
+class Pass:
+    """One OCR pass: what was read, from which image, after which preprocessing steps."""
+
+    ocr: OcrResult
+    # The image OCR ran on; word boxes in `ocr` are in its coordinates.
+    image: np.ndarray
+    # Plain-language preprocessing steps applied to produce `image`.
+    steps: list[str]
+
+
 @dataclass
 class LabelReading:
-    ocr: OcrResult
-    # Plain-language preprocessing steps applied to the image that produced `ocr`.
-    steps: list[str]
+    best: Pass
     timings_ms: dict[str, float] = field(default_factory=dict)
-    # The reading that was not chosen, with its steps, when a retry ran. Different readings
-    # often get different fields right, so callers may take each field from either one.
-    alternative: tuple[OcrResult, list[str]] | None = None
+    # The pass that was not chosen, when a retry ran. Different passes often get different
+    # fields right, so callers may take each field from either one.
+    alternative: Pass | None = None
+
+    @property
+    def ocr(self) -> OcrResult:
+        return self.best.ocr
+
+    @property
+    def steps(self) -> list[str]:
+        return self.best.steps
 
 
 def _elapsed_ms(start: float) -> float:
@@ -57,8 +74,9 @@ def read_label(
     start = time.perf_counter()
     reading = engine.run(base.image)
     timings["ocr"] = _elapsed_ms(start)
+    first = Pass(reading, base.image, base.steps)
     if accept(reading):
-        return LabelReading(reading, base.steps, timings)
+        return LabelReading(first, timings)
 
     start = time.perf_counter()
     fixed = preprocess.heavy(base.image)
@@ -67,7 +85,7 @@ def read_label(
     start = time.perf_counter()
     retry = engine.run(fixed.image)
     timings["ocr_retry"] = _elapsed_ms(start)
-    retry_steps = base.steps + fixed.steps
+    second = Pass(retry, fixed.image, base.steps + fixed.steps)
     if retry.score > reading.score:
-        return LabelReading(retry, retry_steps, timings, alternative=(reading, base.steps))
-    return LabelReading(reading, base.steps, timings, alternative=(retry, retry_steps))
+        return LabelReading(second, timings, alternative=first)
+    return LabelReading(first, timings, alternative=second)

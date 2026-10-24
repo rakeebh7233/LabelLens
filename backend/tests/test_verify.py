@@ -3,6 +3,7 @@ import shutil
 import numpy as np
 import pytest
 
+from app.extract.boldness import Boldness, BoldVerdict
 from app.ocr.engine import OcrError, OcrResult, OcrWord
 from app.schemas import STANDARD_GOVERNMENT_WARNING as W
 from app.schemas import ApplicationData, FieldName, Status
@@ -85,6 +86,15 @@ class BrokenEngine:
         raise self.error
 
 
+@pytest.fixture
+def bold_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """FixedEngine's word boxes do not point at real ink, so stub the bold measurement."""
+    monkeypatch.setattr(
+        "app.extract.warning.classify_prefix", lambda *_: BoldVerdict(Boldness.BOLD, 1.7)
+    )
+
+
+@pytest.mark.usefixtures("bold_prefix")
 def test_all_fields_pass_in_one_ocr_pass() -> None:
     engine = FixedEngine(_reading(PERFECT_TEXT, 0.95))
     result = verify_label(PNG, OLD_TOM, filename="old_tom.png", label_id="abc", engine=engine)

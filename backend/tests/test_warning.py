@@ -1,6 +1,7 @@
 import pytest
 
 from app.config import MatchThresholds
+from app.extract.boldness import Boldness
 from app.extract.warning import (
     block_confidence,
     check_warning,
@@ -149,30 +150,37 @@ def test_check_warning(ocr_text: str, status: Status, reason_contains: str) -> N
 @pytest.mark.parametrize(
     ("prefix_bold", "status", "reason"),
     [
-        (True, P, None),
+        (Boldness.BOLD, P, None),
         (None, P, BOLD_NOTE),
         (
-            False,
+            Boldness.NOT_BOLD,
             R,
-            'Wording matches, but "GOVERNMENT WARNING:" may not be in bold type - check the label',
+            'Wording matches, but "GOVERNMENT WARNING:" does not look bold. It must be in bold '
+            "type - check the label",
+        ),
+        (
+            Boldness.UNKNOWN,
+            R,
+            'Wording matches, but the photo is not clear enough to tell whether "GOVERNMENT '
+            'WARNING:" is in bold type - check the label',
         ),
     ],
 )
-def test_bold_verdict(prefix_bold: bool | None, status: Status, reason: str | None) -> None:
+def test_bold_verdict(prefix_bold: Boldness | None, status: Status, reason: str | None) -> None:
     result = check_warning(W, SURE, prefix_bold=prefix_bold)
     assert result.status is status
     assert result.reason == reason
 
 
 def test_wording_failure_wins_over_bold() -> None:
-    assert check_warning(SENTENCE_1, SURE, prefix_bold=True).status is F
+    assert check_warning(SENTENCE_1, SURE, prefix_bold=Boldness.BOLD).status is F
 
 
 # Low OCR confidence
 
 
 def test_low_confidence_downgrades_pass_to_review() -> None:
-    result = check_warning(W, 0.3, prefix_bold=True)
+    result = check_warning(W, 0.3, prefix_bold=Boldness.BOLD)
     assert result.status is R
     assert result.reason is not None and "hard to read (OCR confidence 30%)" in result.reason
 
@@ -194,7 +202,7 @@ def test_absent_warning_stays_fail_at_low_confidence() -> None:
 
 def test_low_confidence_threshold_comes_from_thresholds() -> None:
     lenient = MatchThresholds(low_ocr_confidence=0.2)
-    assert check_warning(W, 0.3, prefix_bold=True, thresholds=lenient).status is P
+    assert check_warning(W, 0.3, prefix_bold=Boldness.BOLD, thresholds=lenient).status is P
 
 
 # Expected text and reported values
@@ -202,7 +210,7 @@ def test_low_confidence_threshold_comes_from_thresholds() -> None:
 
 def test_custom_expected_text_is_respected() -> None:
     custom = W.replace("health problems.", "health problems. Drink responsibly.")
-    assert check_warning(custom, SURE, expected=custom, prefix_bold=True).status is P
+    assert check_warning(custom, SURE, expected=custom, prefix_bold=Boldness.BOLD).status is P
     assert check_warning(W, SURE, expected=custom).status is F
 
 

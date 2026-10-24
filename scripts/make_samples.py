@@ -177,7 +177,7 @@ def readme(specs: list[LabelSpec], edges: list[tuple[str, str, str]]) -> str:
         "Samples whose expected result the pipeline does not produce yet. The regression test",
         "marks them as expected failures until a decision is made for each.",
         "",
-        *[f"- `{name}`: {reason}." for name, reason in KNOWN_GAPS.items()],
+        *([f"- `{name}`: {reason}." for name, reason in KNOWN_GAPS.items()] or ["None."]),
         "",
         "## Edge cases (`edge_cases/`)",
         "",

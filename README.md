@@ -32,7 +32,7 @@ five seconds. It also handles batches of hundreds of labels.
 | Class/type         | Normalized text match, fuzzy fallback                                                     | Pass / Review / Fail |
 | Alcohol content    | Parsed numerically; ABV and proof are interchangeable                                     | Pass / Fail          |
 | Net contents       | Parsed and converted to mL                                                                | Pass / Review / Fail |
-| Government warning | Exact wording; "GOVERNMENT WARNING:" must be uppercase; bold check <TODO: if implemented> | Pass / Review / Fail |
+| Government warning | Exact wording; "GOVERNMENT WARNING:" must be uppercase; bold checked by stroke width (not bold or unclear -> review) | Pass / Review / Fail |
 
 **Three results, not two.** *Pass* means it matches. *Needs review* means it is probably fine but a
 person should decide (for example `STONE'S THROW` vs `Stone's Throw`). *Fail* means a clear
@@ -131,7 +131,7 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 | Batch uploads of 200-300 labels (Sarah)                                             | Batch page with CSV manifest, live progress, sortable table with fails first, CSV export.                                                                                   |
 | Network blocks outbound domains; the previous vendor's ML endpoints failed (Marcus) | No cloud AI dependency. All OCR runs inside the app container.                                                                                                              |
 | "You need judgment." STONE'S THROW vs Stone's Throw (Dave)                          | Three-state results. Case-only differences become *Needs review*, so the agent keeps the decision.                                                                        |
-| Warning must be exact, uppercase and bold (Jenny)                                   | Word-for-word comparison against the canonical text; uppercase prefix enforced; <TODO: bold heuristic status>.                                                              |
+| Warning must be exact, uppercase and bold (Jenny)                                   | Word-for-word comparison against the canonical text; uppercase prefix enforced; bold checked by stroke width, with doubtful cases sent to review.                                                              |
 | Bad angles, glare, poor lighting (Jenny)                                            | Conditional deskew and glare reduction when OCR confidence is low; very poor images produce *Needs review* with a hint to request a better photo instead of a false pass. |
 
 ## Tools and why
@@ -163,8 +163,10 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 
 ## Known limitations
 
-- **Bold detection** is a stroke-width heuristic and can return "unknown" on small or low-resolution
-  text, which yields *Needs review* rather than a guess. <TODO: update to match what you built>
+- **Bold detection** is a stroke-width heuristic, calibrated on synthetic labels only. Text
+  under about 12 px tall in the processed photo, or with unreliable word boxes, comes back
+  "unknown", which yields *Needs review* rather than a guess. It assumes the prefix and the
+  rest of the warning share a typeface and size.
 - OCR struggles with stylized or script fonts, heavily curved bottle text and non-English labels.
 - Very low-quality photos may be flagged for a better image instead of being fully verified.
 - Brand detection is verification-based (is the expected value on the label?). It does not
