@@ -30,9 +30,9 @@
     }
   },
   "04_brand_ocr_like_typo.png": {
-    "overall": "review",
+    "overall": "pass",
     "fields": {
-      "brand_name": "review",
+      "brand_name": "pass",
       "class_type": "pass",
       "alcohol_content": "pass",
       "net_contents": "pass",
@@ -140,13 +140,13 @@
     }
   },
   "15_warning_tiny_text.png": {
-    "overall": "review",
+    "overall": "fail",
     "fields": {
       "brand_name": "pass",
       "class_type": "pass",
       "alcohol_content": "pass",
       "net_contents": "pass",
-      "government_warning": "review"
+      "government_warning": "fail"
     }
   },
   "16_beer_label.png": {

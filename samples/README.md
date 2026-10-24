@@ -32,7 +32,7 @@ never pass).
 | 01 | `01_old_tom_perfect.png` | spirits | Nothing: the reference label. | pass | all pass |
 | 02 | `02_stones_throw_case.png` | spirits | Label brand STONE'S THROW, application Stone's Throw (Dave's example). | review | brand_name = review |
 | 03 | `03_brand_curly_apostrophe.png` | spirits | Label uses a curly apostrophe, application a straight one. | pass | all pass |
-| 04 | `04_brand_ocr_like_typo.png` | spirits | Label prints OLD T0M with a zero, application OLD TOM. | review | brand_name = review |
+| 04 | `04_brand_ocr_like_typo.png` | spirits | Label prints OLD T0M with a zero, application OLD TOM. Accepted limitation: OCR reads the zero as the letter O (confidence 0.94), so it matches. | pass | all pass |
 | 05 | `05_wrong_brand.png` | spirits | Label brand HARBOR WREN, application OLD TOM DISTILLERY. | fail | brand_name = fail |
 | 06 | `06_wrong_abv.png` | spirits | Label 40% (80 proof), application 45% (90 proof). | fail | alcohol_content = fail |
 | 07 | `07_proof_only.png` | spirits | Label prints only 90 PROOF, application 45% Alc./Vol. | pass | all pass |
@@ -43,7 +43,7 @@ never pass).
 | 12 | `12_warning_missing_sentence2.png` | spirits | Warning sentence (2) left out. | fail | government_warning = fail |
 | 13 | `13_warning_absent.png` | spirits | No warning at all. | fail | government_warning = fail |
 | 14 | `14_warning_not_bold.png` | spirits | "GOVERNMENT WARNING:" printed in regular weight instead of bold. | review | government_warning = review |
-| 15 | `15_warning_tiny_text.png` | spirits | Warning printed very small; OCR is unsure, so review rather than fail. | review | government_warning = review |
+| 15 | `15_warning_tiny_text.png` | spirits | Warning printed at 11 px. OCR reads none of it, which looks the same as no warning; failing is the conservative outcome and is accepted. | fail | government_warning = fail |
 | 16 | `16_beer_label.png` | beer | Beer layout and units (fl oz). | pass | all pass |
 | 17 | `17_wine_label.png` | wine | Wine layout with extra text (vintage, CONTAINS SULFITES). | pass | all pass |
 | 18 | `18_rotated_12deg.png` | spirits | Perfect label rotated 12 degrees (deskew). | pass | all pass |
@@ -58,9 +58,7 @@ never pass).
 Samples whose expected result the pipeline does not produce yet. The regression test
 marks them as expected failures until a decision is made for each.
 
-- `04_brand_ocr_like_typo.png`: OCR reads the printed zero in T0M as the letter O (confidence 0.94), so the difference never reaches the matcher.
-- `14_warning_not_bold.png`: Bold detection is not implemented yet (Phase 12).
-- `15_warning_tiny_text.png`: OCR reads no text at all from the 11 px warning, which is indistinguishable from an absent warning, so it fails instead of review.
+- `14_warning_not_bold.png`: Bold detection is not implemented (Phase 12, optional), so a regular-weight prefix passes with the note that bold was not checked.
 
 ## Edge cases (`edge_cases/`)
 

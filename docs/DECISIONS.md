@@ -288,10 +288,17 @@ Each entry: what we chose, why, and what it costs.
   compress); low-frequency mottling keeps backgrounds uneven at about 600 KB per label.
 - **Expected results can be loose for degraded photos:** `not_fail` (pass or review) for a
   good label photographed badly, `not_pass` (review or fail) when glare hides a field.
-- **Samples that do not yet produce the spec's expected result are strict expected failures**
-  (`KNOWN_GAPS` in `samples_lib/spec.py`, also listed in the samples README), pending a
-  decision: 04 (OCR reads the zero in T0M as O), 14 (no bold detection yet) and 15 (tiny
-  warning text reads as no warning at all).
+- **Samples that do not produce the spec's expected result are strict expected failures**
+  (`KNOWN_GAPS` in `samples_lib/spec.py`, also listed in the samples README). Three came up;
+  decisions:
+  - 04 "OLD T0M" (zero): **expect pass, accepted limitation.** Tesseract reads the zero as
+    the letter O at 0.94 confidence, so no matching rule can see it; a person reading the
+    label would struggle too.
+  - 14 prefix not bold: **kept as a known gap** until bold detection (Phase 12, optional)
+    exists. The result says bold was not checked automatically.
+  - 15 tiny warning text: **expect fail, accepted as conservative.** OCR reads none of the
+    11 px warning, which is indistinguishable from an absent warning. Upscaling in the second
+    pass might rescue it, but it was not adopted.
 - **Pipeline fixes found by the samples:**
   - Net contents accepts "0Z" for "OZ", a common OCR misread (beer label).
   - *Each field takes its best result across both OCR readings* (`best_per_field`). On the

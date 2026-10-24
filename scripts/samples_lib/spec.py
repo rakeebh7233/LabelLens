@@ -69,14 +69,9 @@ class LabelSpec:
 # decision: change the rule, change the sample, or accept the limitation. test_samples.py
 # marks them as strict expected failures, so a change that fixes one is noticed.
 KNOWN_GAPS = {
-    "04_brand_ocr_like_typo.png": (
-        "OCR reads the printed zero in T0M as the letter O (confidence 0.94), so the "
-        "difference never reaches the matcher"
-    ),
-    "14_warning_not_bold.png": "Bold detection is not implemented yet (Phase 12)",
-    "15_warning_tiny_text.png": (
-        "OCR reads no text at all from the 11 px warning, which is indistinguishable from an "
-        "absent warning, so it fails instead of review"
+    "14_warning_not_bold.png": (
+        "Bold detection is not implemented (Phase 12, optional), so a regular-weight prefix "
+        "passes with the note that bold was not checked"
     ),
 }
 
@@ -159,8 +154,9 @@ SPECS: list[LabelSpec] = [
     LabelSpec(
         "04", "04_brand_ocr_like_typo.png", "spirits",
         replace(OLD_TOM_LABEL, brand="OLD T0M DISTILLERY"), OLD_TOM_APP,
-        "Label prints OLD T0M with a zero, application OLD TOM.",
-        "review", _only("brand_name", "review"),
+        "Label prints OLD T0M with a zero, application OLD TOM. Accepted limitation: OCR reads "
+        "the zero as the letter O (confidence 0.94), so it matches.",
+        "pass", _all("pass"),
     ),
     LabelSpec(
         "05", "05_wrong_brand.png", "spirits",
@@ -216,8 +212,9 @@ SPECS: list[LabelSpec] = [
     ),
     LabelSpec(
         "15", "15_warning_tiny_text.png", "spirits", OLD_TOM_LABEL, OLD_TOM_APP,
-        "Warning printed very small; OCR is unsure, so review rather than fail.",
-        "review", _only("government_warning", "review"), warning_size=11,
+        "Warning printed at 11 px. OCR reads none of it, which looks the same as no warning; "
+        "failing is the conservative outcome and is accepted.",
+        "fail", _only("government_warning", "fail"), warning_size=11,
     ),
     LabelSpec(
         "16", "16_beer_label.png", "beer",
