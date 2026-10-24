@@ -70,9 +70,9 @@ must be documented as likely blocked by the agency firewall.
 ```
 labellens/
   CLAUDE.md
-  PROMPTS.md
   README.md                 # setup, run, approach, assumptions, limitations
   docs/DECISIONS.md         # trade-offs and why
+  docs/PROMPTS.md           # phase-by-phase prompt library
   Dockerfile
   docker-compose.yml
   backend/

@@ -1,11 +1,19 @@
+import Verify from "./pages/Verify";
+
 export default function App() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 text-slate-900">
-      <h1 className="text-4xl font-bold">LabelLens</h1>
-      <p className="mt-4 text-xl">
-        Check an alcohol label against its application, field by field.
-      </p>
-      <p className="mt-8 text-lg text-slate-700">Coming soon: check one label, or check many at once.</p>
-    </main>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <header className="border-b-2 border-slate-200 bg-white">
+        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+          <h1 className="text-3xl font-bold">LabelLens</h1>
+          <p className="mt-1 text-lg text-slate-700">
+            Check an alcohol label photo against its application, field by field.
+          </p>
+        </div>
+      </header>
+      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <Verify />
+      </main>
+    </div>
   );
 }

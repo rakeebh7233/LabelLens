@@ -317,3 +317,29 @@ Each entry: what we chose, why, and what it costs.
   two rules back each other up.
 - **Measured:** median 958 ms per sample label (max 1.1 s). 250 labels in 44 s with 4
   workers (0.18 s per label).
+
+## Frontend: single label
+
+- **No router or state library yet.** One page, local `useState`, and a typed `fetch` client
+  (`src/api/`). `src/api/types.ts` mirrors `schemas.py` by hand; there are few enough types
+  that generating them from OpenAPI is not worth the build step.
+- **The disabled button explains itself.** "Check this label" stays disabled until a photo and
+  the four required fields exist; a sentence under it names exactly what is missing and is
+  wired to the button with `aria-describedby`. A disabled button cannot take focus, so the
+  sentence is always visible rather than shown on hover.
+- **The warning field is prefilled and collapsed.** Agents almost never change it; "Edit warning
+  text" opens it, and "Reset to the standard text" appears once it differs.
+- **Pass cards start closed, review and fail cards open**, so the agent's eye goes to what needs
+  a decision. Each card is a button with `aria-expanded`; status is always icon plus word.
+- **Focus moves to the outcome** (result banner or error heading) when a check finishes, so
+  keyboard and screen-reader users land on it without hunting.
+- **Three error states:** unreadable photo (the API returns 200 with `error` set), server error
+  (the API's plain-language `detail` is shown as is), and network error. All offer "Try again".
+- **Elapsed time is measured in the browser** (upload + OCR + response), which is what the agent
+  actually waits for; the server's `timings_ms.total` is the fallback.
+- **File type is checked in the browser too** (by extension, matching the server's list) so a
+  wrong file is refused before upload. Size is left to the server, whose limit is configurable.
+- **TIFF previews:** most browsers cannot display TIFF, so the drop zone says the photo cannot be
+  previewed but can still be checked.
+- **Not verified automatically:** layout at 1280px and 390px and a real screen-reader pass were
+  checked by reading the markup, not with a browser; no headless browser in the dev environment.
