@@ -210,10 +210,18 @@ def get_batch(request: Request, job_id: str, since: int = 0) -> BatchJob:
     return _job_or_404(request, job_id, since)
 
 
+@app.delete("/api/batch/{job_id}", response_model=BatchJob)
+def cancel_batch(request: Request, job_id: str) -> BatchJob:
+    """Stop checking. Labels already checked stay in the results and the export."""
+    _job_or_404(request, job_id)
+    request.app.state.batch.store.cancel(job_id)
+    return _job_or_404(request, job_id)
+
+
 @app.get("/api/batch/{job_id}/export.csv")
 def export_batch(request: Request, job_id: str) -> Response:
     job = _job_or_404(request, job_id)
-    if job.state is not JobState.DONE:
+    if job.state not in (JobState.DONE, JobState.CANCELLED):
         raise HTTPException(409, "This batch is still running. Export when it has finished.")
     return Response(
         content=results_csv(job.results),

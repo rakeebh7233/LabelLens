@@ -111,6 +111,7 @@ stops the batch. Results appear as they finish and can be exported as CSV.
 | POST   | `/api/verify`                    | One image + application fields -> `LabelResult`          |
 | POST   | `/api/batch`                     | Images + `manifest.csv` -> `{job_id}`                  |
 | GET    | `/api/batch/{job_id}`            | Progress and results so far                                |
+| DELETE | `/api/batch/{job_id}`            | Stop a batch; finished results are kept                    |
 | GET    | `/api/batch/{job_id}/export.csv` | Download results                                           |
 | GET    | `/api/health`                    | Health check (also reports whether Tesseract is available) |
 

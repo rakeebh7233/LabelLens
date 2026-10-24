@@ -33,6 +33,8 @@ class JobState(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     DONE = "done"
+    # Stopped by the user; results finished before the stop are kept.
+    CANCELLED = "cancelled"
 
 
 _SEVERITY = {Status.PASS: 0, Status.REVIEW: 1, Status.FAIL: 2}

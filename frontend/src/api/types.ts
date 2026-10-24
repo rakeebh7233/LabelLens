@@ -53,3 +53,27 @@ export const FIELD_LABELS: Record<FieldName, string> = {
   net_contents: "Net contents",
   government_warning: "Government warning",
 };
+
+export type JobState = "queued" | "running" | "done" | "cancelled";
+
+export interface BatchProgress {
+  total: number;
+  completed: number;
+  passed: number;
+  review: number;
+  failed: number;
+}
+
+export interface BatchJob {
+  job_id: string;
+  state: JobState;
+  created_at: string;
+  progress: BatchProgress;
+  // Only the results after the `since` count passed to GET /api/batch/{id}.
+  results: LabelResult[];
+}
+
+export interface BatchCreated {
+  job_id: string;
+  total: number;
+}

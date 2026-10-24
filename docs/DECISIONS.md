@@ -343,3 +343,46 @@ Each entry: what we chose, why, and what it costs.
   previewed but can still be checked.
 - **Not verified automatically:** layout at 1280px and 390px and a real screen-reader pass were
   checked by reading the markup, not with a browser; no headless browser in the dev environment.
+
+## Frontend: batch
+
+- **Cancel is a new route, `DELETE /api/batch/{id}`.** It marks the job `cancelled`; labels
+  still waiting skip themselves (releasing their photo) when a worker reaches them, and a
+  label already being read is discarded when it finishes. Results from before the stop are
+  kept, and export is allowed for a cancelled job as well as a finished one: stopping is an
+  explicit choice, so a partial file is not a surprise. The UI asks for confirmation first.
+- **Mismatches are found in the browser before upload.** `src/lib/manifest.ts` reads the CSV
+  (a small RFC 4180 parser; comma, semicolon or tab) with the same friendly column names as
+  the server and pairs photos with rows by file name, ignoring folders and case. Photos
+  without a row and rows without a photo are listed in plain language; "Continue with the N
+  matches" uploads only the matched photos and a manifest rebuilt with only their rows. The
+  server still re-checks everything and stays the authority. **The column aliases are
+  duplicated** in `manifest.ts` and `services/manifest.py` and must be kept in step.
+- **Missing required columns are caught before upload** too, so a wrong spreadsheet does not
+  cost a few hundred MB of upload first.
+- **Folders:** "Choose a folder" uses `webkitdirectory` (supported by all current browsers);
+  dropped folders are walked with the File and Directory Entries API. Non-photo files are
+  skipped and named. If a dropped folder holds exactly one CSV and no spreadsheet has been
+  chosen yet, it is used as the spreadsheet (the sample folders are laid out this way).
+- **Choosing photos again replaces the selection** rather than adding to it, so the count shown
+  is always exactly what will be sent.
+- **Upload uses XMLHttpRequest** because `fetch` cannot report upload progress, and a few
+  hundred photos take long enough to need a "Sending photos... 45%" message.
+- **Polling every 1.5 s with `since`**, so each poll carries only new results. A failed poll
+  shows "Lost contact with the server. Still trying..." and keeps going; a 404 (expired or
+  unknown job) stops and offers a new batch.
+- **The job id lives in the URL** (`?view=batch&job=<id>`), so a refresh or the back button
+  returns to the same batch while the server still holds it (60 minutes after finishing).
+  Query string rather than paths because FastAPI serves `index.html` only at `/`. After a
+  refresh the brand column falls back to what the results carry, since the spreadsheet is not
+  re-read; error rows (which have no fields) then show no brand.
+- **Table:** fails first, then review, then pass (more issues first within a status), with
+  sortable column headers, filter chips with counts (`aria-pressed`) and a search over file
+  name and brand. Rows are not virtualized; 300 rows render without trouble.
+- **Detail panel is non-modal**, so the table stays usable while the batch runs. Focus moves
+  to its Close button and returns to the row on close; Escape closes it. It is full screen
+  on a phone.
+- **Measured:** a 50-label batch with one corrupt file against the real backend finished in
+  10 s on 4 workers, progress advancing every poll; the corrupt file became a row-level error
+  and the other 49 completed. The browser layout itself was not checked in a real browser
+  (no headless browser in the dev environment).

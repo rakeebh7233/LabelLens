@@ -9,6 +9,9 @@ function plural(count: number, word: string): string {
 
 function summary(result: LabelResult): string {
   const count = (status: Status) => result.fields.filter((f) => f.status === status).length;
+  if (result.error) {
+    return `This label could not be checked. ${result.error}${/[.!?]$/.test(result.error) ? "" : "."}`;
+  }
   if (result.overall_status === "pass") return "Every field matches the application.";
   if (result.overall_status === "review") {
     return `${plural(count("review"), "field")} need${count("review") === 1 ? "s" : ""} a closer look. You decide.`;

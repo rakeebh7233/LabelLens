@@ -75,7 +75,7 @@ class JobStore:
     def add_result(self, job_id: str, result: LabelResult) -> None:
         with self._lock:
             entry = self._jobs.get(job_id)
-            if entry is None:
+            if entry is None or entry.job.state is JobState.CANCELLED:
                 return
             entry.results.append(result)
             progress = entry.job.progress
@@ -90,6 +90,22 @@ class JobStore:
             if progress.completed >= progress.total:
                 entry.job.state = JobState.DONE
                 entry.finished_at = time.monotonic()
+
+    def cancel(self, job_id: str) -> bool:
+        """Stop a job that has not finished. False if there is no such job."""
+        with self._lock:
+            entry = self._jobs.get(job_id)
+            if entry is None:
+                return False
+            if entry.job.state is not JobState.DONE:
+                entry.job.state = JobState.CANCELLED
+                entry.finished_at = time.monotonic()
+            return True
+
+    def is_cancelled(self, job_id: str) -> bool:
+        with self._lock:
+            entry = self._jobs.get(job_id)
+            return entry is None or entry.job.state is JobState.CANCELLED
 
     def get(self, job_id: str, since: int = 0) -> BatchJob | None:
         """A snapshot of the job with the results after the first `since`."""
@@ -136,6 +152,9 @@ class BatchRunner:
         return job_id
 
     def _run(self, job_id: str, item: BatchItem) -> None:
+        if self.store.is_cancelled(job_id):
+            item.image = None  # stopped (or expired) before this label's turn
+            return
         self.store.mark_running(job_id)
         try:
             assert item.image is not None and item.application is not None

@@ -273,6 +273,27 @@ def test_export_waits_for_the_batch_then_returns_csv(client: TestClient) -> None
     assert [r["filename"] for r in rows] == ["b.png", "a.png"]  # fails first
 
 
+def test_cancel_stops_a_batch_and_allows_export(client: TestClient) -> None:
+    release = threading.Event()
+
+    def held_verify(image: bytes, application: ApplicationData, *, filename: str) -> LabelResult:
+        release.wait(5)
+        return LabelResult(label_id=filename, filename=filename, fields=[], error="x")
+
+    runner = BatchRunner(JobStore(ttl_s=60), workers=1, verify=held_verify)
+    client.app.state.batch = runner  # type: ignore[attr-defined]
+    photos = [("a.png", GOOD_PNG), ("b.png", GOOD_PNG)]
+    job_id = post_batch(client, photos, manifest("a.png", "b.png")).json()["job_id"]
+
+    cancelled = client.delete(f"/api/batch/{job_id}")
+    release.set()
+    assert cancelled.status_code == 200
+    assert cancelled.json()["state"] == "cancelled"
+    assert client.get(f"/api/batch/{job_id}/export.csv").status_code == 200
+    assert client.delete("/api/batch/nope").status_code == 404
+    runner.shutdown()
+
+
 def test_errors_never_leak_stack_traces(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

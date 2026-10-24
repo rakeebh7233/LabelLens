@@ -157,6 +157,44 @@ def test_runner_uses_a_bounded_pool() -> None:
     runner.shutdown()
 
 
+def test_cancel_stops_remaining_labels_and_keeps_finished_ones() -> None:
+    started, release = threading.Event(), threading.Event()
+
+    def held_verify(image: bytes, application: ApplicationData, *, filename: str) -> LabelResult:
+        if filename == "0.png":
+            return _result(filename, Status.PASS)
+        started.set()
+        release.wait(5)
+        return _result(filename, Status.PASS)
+
+    store = JobStore(ttl_s=60)
+    runner = BatchRunner(store, workers=1, verify=held_verify)
+    items = [BatchItem(f"{i}.png", b"x", APP) for i in range(5)]
+    job_id = runner.submit(items)
+    assert started.wait(5)  # 0.png done, 1.png in flight, 2-4 queued
+    assert store.cancel(job_id)
+    release.set()
+    deadline = time.monotonic() + 5
+    while any(item.image is not None for item in items):  # queued labels skip and release
+        assert time.monotonic() < deadline, "queued labels were not released"
+        time.sleep(0.01)
+    runner.shutdown()
+
+    job = store.get(job_id)
+    assert job is not None and job.state is JobState.CANCELLED
+    assert [r.filename for r in job.results] == ["0.png"]
+    assert job.progress.completed == 1
+
+
+def test_cancel_leaves_a_finished_job_done() -> None:
+    store = JobStore(ttl_s=60)
+    job_id = store.create(total=1)
+    store.add_result(job_id, _result("a", Status.PASS))
+    assert store.cancel(job_id)
+    assert store.get(job_id).state is JobState.DONE  # type: ignore[union-attr]
+    assert not store.cancel("nope")
+
+
 # results_csv
 
 
