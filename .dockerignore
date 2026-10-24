@@ -1,0 +1,15 @@
+# Only backend/app, backend/requirements.txt and frontend/ are copied into the image.
+.git
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+backend/.venv
+backend/tests
+frontend/dist
+frontend/*.tsbuildinfo
+samples
+scripts
+docs
+*.log
+.env
+.env.*

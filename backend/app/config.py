@@ -8,6 +8,27 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def available_cpus(cgroup_cpu_max: Path = Path("/sys/fs/cgroup/cpu.max")) -> float:
+    """CPUs this process may actually use. In a container, os.cpu_count() reports the host's
+    cores, so a 0.5-CPU instance on a 16-core host would look like 16; the cgroup v2 quota
+    ("<quota> <period>", or "max" for no limit) gives the real allowance."""
+    if hasattr(os, "sched_getaffinity"):
+        cores = float(len(os.sched_getaffinity(0)))
+    else:
+        cores = float(os.cpu_count() or 1)
+    try:
+        quota, period = cgroup_cpu_max.read_text().split()
+        if quota != "max":
+            return min(cores, int(quota) / int(period))
+    except (OSError, ValueError):
+        pass
+    return cores
+
+
+def _default_workers() -> int:
+    return max(1, min(4, int(available_cpus())))
+
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -58,7 +79,7 @@ def get_settings() -> Settings:
         max_upload_mb=int(os.getenv("LABELLENS_MAX_UPLOAD_MB", "10")),
         max_image_edge=int(os.getenv("LABELLENS_MAX_IMAGE_EDGE", "1600")),
         ocr_retry_confidence=float(os.getenv("LABELLENS_OCR_RETRY_CONFIDENCE", "0.75")),
-        batch_workers=int(os.getenv("LABELLENS_BATCH_WORKERS", str(min(4, os.cpu_count() or 1)))),
+        batch_workers=int(os.getenv("LABELLENS_BATCH_WORKERS", str(_default_workers()))),
         max_batch_files=int(os.getenv("LABELLENS_MAX_BATCH_FILES", "300")),
         max_batch_mb=int(os.getenv("LABELLENS_MAX_BATCH_MB", "500")),
         batch_ttl_minutes=int(os.getenv("LABELLENS_BATCH_TTL_MINUTES", "60")),

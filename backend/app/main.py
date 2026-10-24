@@ -19,9 +19,10 @@ from pydantic import BaseModel, ValidationError
 
 from app.config import get_settings
 from app.schemas import ApplicationData, BatchJob, JobState, LabelResult
+from app.selftest import run_self_test
 from app.services.batch import BatchRunner, JobStore, results_csv
 from app.services.manifest import ManifestError, Upload, base_name, pair_uploads, parse_manifest
-from app.services.verify import verify_label
+from app.services.verify import get_engine, verify_label
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -50,6 +51,11 @@ class BatchCreated(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Uvicorn configures only its own loggers; give ours the same level so startup is visible.
+    logging.getLogger("labellens").setLevel(logging.INFO)
+    if not logging.getLogger().handlers:
+        logging.basicConfig(format="%(levelname)s:     %(name)s - %(message)s")
+    run_self_test(get_engine(), settings)
     store = JobStore(ttl_s=settings.batch_ttl_minutes * 60)
     app.state.batch = BatchRunner(store, workers=settings.batch_workers)
     yield

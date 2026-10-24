@@ -4,5 +4,16 @@ services:
     ports:
       - "8000:8000"
     environment:
+      PORT: "8000"
       LABELLENS_BATCH_WORKERS: "4"
       LABELLENS_ENABLE_LLM_FALLBACK: "false"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
