@@ -37,6 +37,12 @@ class Settings:
     ocr_retry_confidence: float
     # Size of the worker pool used for batch jobs.
     batch_workers: int
+    # Most photos accepted in one batch, and their combined size. Photos are held in memory
+    # until checked, so the size cap is what protects a small server.
+    max_batch_files: int
+    max_batch_mb: int
+    # Finished batch jobs (and their results) are forgotten after this many minutes.
+    batch_ttl_minutes: int
     # Explicit path to the tesseract binary; None means look it up on PATH.
     tesseract_cmd: str | None
     # Optional cloud LLM vision fallback. Off by default; likely blocked by the agency firewall.
@@ -53,6 +59,9 @@ def get_settings() -> Settings:
         max_image_edge=int(os.getenv("LABELLENS_MAX_IMAGE_EDGE", "1600")),
         ocr_retry_confidence=float(os.getenv("LABELLENS_OCR_RETRY_CONFIDENCE", "0.75")),
         batch_workers=int(os.getenv("LABELLENS_BATCH_WORKERS", str(min(4, os.cpu_count() or 1)))),
+        max_batch_files=int(os.getenv("LABELLENS_MAX_BATCH_FILES", "300")),
+        max_batch_mb=int(os.getenv("LABELLENS_MAX_BATCH_MB", "500")),
+        batch_ttl_minutes=int(os.getenv("LABELLENS_BATCH_TTL_MINUTES", "60")),
         tesseract_cmd=os.getenv("LABELLENS_TESSERACT_CMD") or None,
         enable_llm_fallback=_env_bool("LABELLENS_ENABLE_LLM_FALLBACK", False),
         frontend_dist=Path(os.getenv("LABELLENS_FRONTEND_DIST", str(_REPO_ROOT / "frontend" / "dist"))),

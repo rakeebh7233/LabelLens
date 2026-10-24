@@ -4,6 +4,7 @@ The rest of the app depends only on OcrEngine and OcrResult, so another local en
 (RapidOCR, PaddleOCR) can be swapped in by implementing `run`.
 """
 
+import os
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -92,6 +93,10 @@ class TesseractEngine:
     ) -> None:
         if tesseract_cmd:
             pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+        # One thread per Tesseract process. Batches already run labels in parallel; letting each
+        # process start its own threads oversubscribes the CPU (measured: 8 workers took 3.9 s
+        # for 20 labels without this, 2.2 s with it). Tesseract inherits the environment.
+        os.environ.setdefault("OMP_THREAD_LIMIT", "1")
         self.retry_below = retry_below
         self.timeout_s = timeout_s
         self.modes = modes

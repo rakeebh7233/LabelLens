@@ -220,3 +220,50 @@ Each entry: what we chose, why, and what it costs.
 - **`LabelResult` gained `preprocessing` (plain-language steps) and `ocr_confidence`,** so
   the UI can show what was done to the photo.
 - **Bold is passed as "not checked" (`prefix_bold=None`)** until Phase 12.
+
+## API and batch
+
+- **Routes:** `POST /api/verify` (multipart photo + fields -> `LabelResult`), `POST /api/batch`
+  (photos + CSV -> 202 `{job_id, total}`), `GET /api/batch/{id}?since=N`, `GET
+  /api/batch/{id}/export.csv`, `GET /api/health`. Every error is `{"detail": "<plain
+  sentence>"}`. Request validation errors and unexpected exceptions get generic plain
+  messages; stack traces are only logged.
+- **Single label:** a wrong file type (415), too large (413), empty (400), no photo (400) or
+  blank fields (422, naming them) are rejected up front. An image that cannot be decoded
+  returns 200 with a `LabelResult` whose `error` is set, the same shape a batch row uses, so
+  the UI has one way to show it.
+- **Batch: problems with single photos become error rows, never request failures.** A photo
+  with no spreadsheet row, a row with no photo, a duplicate, a wrong file type, an oversized
+  photo or a row with blank cells each become a `LabelResult` with a plain `error`. They show
+  in the results table and the CSV export, so the agent sees every problem in one place. Only
+  problems with the whole request are rejected: no spreadsheet, no photos, over 300 photos
+  (`LABELLENS_MAX_BATCH_FILES`), photos totalling over 500 MB (`LABELLENS_MAX_BATCH_MB`), or a
+  manifest that is not CSV, has missing columns or has no rows.
+- **Manifest matching is forgiving:** by file name ignoring folders and letter case; friendly
+  headers ("File Name", "Brand", "ABV", "Volume"); comma, semicolon or tab separated; UTF-8 or
+  Excel's Windows-1252; a blank government warning means the standard text. Manifest parsing
+  lives in `services/manifest.py`, an addition to the planned layout, because it is pure and
+  tested on its own.
+- **Threads, not processes, for the worker pool.** Tesseract runs as a child process and
+  OpenCV releases the GIL, so threads parallelize the heavy work without pickling images.
+  Measured with 20 labels: 1 worker 11.1 s, 4 workers 3.4 s.
+- **`OMP_THREAD_LIMIT=1`** (set in the Dockerfile and by the engine if unset). Each Tesseract
+  otherwise starts its own threads and parallel workers oversubscribe the CPU: 8 workers took
+  3.9 s for 20 labels without it and 2.2 s with it. The default stays `min(4, cpu count)`
+  workers. On a 1-vCPU host expect about 0.5 s per label, so 300 labels take about 2.5
+  minutes.
+- **Polling, not streaming.** `GET /api/batch/{id}?since=N` returns progress plus only the
+  results after the first N, so the table fills in without resending everything each poll.
+  Simpler to build and to run behind proxies than server-sent events or websockets.
+- **In-memory job store with a TTL.** Jobs live in `JobStore` (one lock; the only shared
+  mutable state) and are dropped 60 minutes after finishing (`LABELLENS_BATCH_TTL_MINUTES`).
+  This is done lazily on each access, with no background thread. A restart forgets every job.
+  This only works on a single server process: running several uvicorn workers would split
+  jobs between them.
+- **Uploads are never written by the app.** Photos are read into memory, and each one's bytes
+  are released as soon as it has been checked. Starlette may spool a large upload to a
+  temporary file while the request is being received; that file is deleted when the request
+  ends. The 500 MB batch cap exists because photos wait in memory until checked.
+- **Export waits for the batch to finish (409 while running)** so a partial file is never
+  mistaken for the full result. Rows are fails first, then review, then pass. Cells starting
+  with `= + - @` are prefixed with `'` so spreadsheet apps do not run OCR text as a formula.

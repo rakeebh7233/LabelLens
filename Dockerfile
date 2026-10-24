@@ -17,7 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
 COPY --from=frontend /frontend/dist ./frontend_dist
 
+# OMP_THREAD_LIMIT=1: one thread per Tesseract process; the batch pool provides parallelism.
 ENV LABELLENS_FRONTEND_DIST=/app/frontend_dist \
+    OMP_THREAD_LIMIT=1 \
     PORT=8000
 EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
