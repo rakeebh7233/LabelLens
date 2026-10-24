@@ -83,6 +83,38 @@ cd frontend && npm test             # component tests
 python scripts/make_samples.py      # regenerate samples/labels and samples/applications.csv
 ```
 
+### Deploying to Render (free tier)
+
+The repo includes `render.yaml`, a Render Blueprint for one free web service built from the
+`Dockerfile`.
+
+1. Push the repo to GitHub.
+2. Sign up at [render.com](https://render.com) (the free plan needs no card).
+3. **New -> Blueprint**, pick the repo, and confirm. Render builds the image (a few minutes)
+   and gives you a `https://<name>.onrender.com` URL. Pushes to the default branch redeploy.
+4. Check `https://<name>.onrender.com/api/health` returns `"tesseract_available": true`. The
+   startup log also prints the CPUs the app sees and the result of an OCR self-test.
+
+**What to expect on the free tier:**
+
+- **It sleeps** after 15 minutes without traffic and takes about a minute to wake. Open the
+  URL a minute before a demo. Sleeping (or any redeploy) also forgets batch jobs, which live
+  in memory.
+- **It is slower than the 5-second target.** Render does not publish the free instance's CPU
+  share. Measured with the container capped at 0.1 CPU and 512 MB: **7.6 s median per label**
+  (max 9.4 s), all samples still correct. Every result shows its time, and `timings_ms` in
+  the API response breaks it down, so the real speed is easy to check after deploying.
+- **Batches are capped at 200 MB of photos** (`LABELLENS_MAX_BATCH_MB`) to fit in 512 MB:
+  about 300 of the sample labels, or about 50 full-size phone photos. At 0.1 CPU a batch
+  checks about 8 labels a minute.
+
+**Sizing for the 5-second target:** the app needs about 0.75 CPU-seconds per label, so any
+instance with half a CPU or more meets it (1.5 s median at 0.5 CPU, 0.8 s at 1 CPU; see
+below). Keep a single instance and a single process either way: batch jobs live in memory.
+
+The hosted URL is for evaluating the prototype. An agency deployment would run the same
+Docker image inside the agency network; it makes no outbound calls.
+
 ---
 
 ## How it works
@@ -171,7 +203,9 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 - Very low-quality photos may be flagged for a better image instead of being fully verified.
 - Brand detection is verification-based (is the expected value on the label?). It does not
   discover the brand from scratch.
-- Batch jobs are in memory and are lost on restart. <TODO: Render/Fly cold starts, instance size>
+- Batch jobs are in memory and are lost on restart. On Render's free tier that includes the
+  service going to sleep after 15 idle minutes, and single labels take about 7-9 s instead
+  of under 5 s (see [Deploying to Render](#deploying-to-render-free-tier)).
 - Accessibility was tested with keyboard and basic screen reader checks only. <TODO: adjust>
 
 ## What I would do next
@@ -199,8 +233,17 @@ docs/       DECISIONS.md
 <TODO: summarize coverage, e.g. "N unit tests for normalization/parsing/compare, M API tests,
 sample-label regression test asserting expected status for each file">
 
-**Measured performance** (<TODO: machine/instance>): single label median <TODO></todo> s, p95 <TODO></todo> s;
-250-label batch in <TODO></todo> s.
+**Measured performance** (Docker image, all 23 sample labels through `/api/verify`, CPU capped
+with `docker run --cpus`; every run gave the expected result for every sample):
+
+| CPU limit | Median per label | Max | 23-label batch |
+| --------- | ---------------- | --- | -------------- |
+| none (20-core laptop) | 0.89 s | 1.06 s | 5.6 s (4 workers) |
+| 1 CPU     | 0.77 s | 0.89 s | 14.6 s (1 worker) |
+| 0.5 CPU   | 1.47 s | 1.61 s | 28.8 s |
+| 0.1 CPU   | 7.60 s | 9.41 s | 158 s |
+
+Memory stayed around 125 MB in every run.
 
 ## License / credits
 

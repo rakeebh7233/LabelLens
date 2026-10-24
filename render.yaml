@@ -1,0 +1,21 @@
+# Render Blueprint: New -> Blueprint in the Render dashboard, pick this repo.
+# One free web service built from the Dockerfile. See README "Deploying to Render".
+services:
+  - type: web
+    name: labellens
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Batch jobs live in memory, so this must stay a single instance with one process.
+      # Workers follow the CPU quota (1 on a free instance); set explicitly to be clear.
+      - key: LABELLENS_BATCH_WORKERS
+        value: "1"
+      # Photos wait in memory until checked. The app idles at about 125 MB; this keeps a
+      # full batch inside a 512 MB instance.
+      - key: LABELLENS_MAX_BATCH_MB
+        value: "200"
+      - key: LABELLENS_ENABLE_LLM_FALLBACK
+        value: "false"

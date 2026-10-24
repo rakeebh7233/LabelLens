@@ -436,3 +436,34 @@ Each entry: what we chose, why, and what it costs.
 - **Test helper change:** `tests/label_images.render_label` now prints the prefix in bold,
   as on a real label (`bold_prefix=False` for the regular version). Before, the whole
   warning was regular, which the detector correctly reported as not bold.
+
+## Container and deployment
+
+- **Host: Render's free tier**, chosen under a no-cost constraint (checked October 2026):
+  - Hugging Face Docker Spaces now need a paid plan to create.
+  - Fly.io, Railway and Cloud Run need a card or are time-limited trials.
+  - Oracle Cloud Always Free has the most compute but is a bare VM to run and patch, and
+    usually asks for card verification.
+  - Render: no card, builds the Dockerfile on each push, config lives in the repo
+    (`render.yaml`). Costs: sleeps after 15 idle minutes (about a minute to wake) and an
+    unpublished, small CPU share.
+- **Measured, not guessed** (`docker run --cpus N --memory 512m`, all 23 samples, both
+  `/api/verify` and a batch): see the README table. Time scales almost exactly with CPU
+  share, about 0.75 CPU-seconds per label, so the 5-second target needs about 0.16 CPU;
+  0.5 CPU gives 1.5 s. Results were identical at every size; memory about 125 MB.
+- **Free-tier settings kept accuracy over speed.** At 0.1 CPU a label takes 7.6 s. Shrinking
+  images to 1200 px (from 1600) was tried: only 6.2 s, and two samples got worse, the
+  perspective-skew label wrongly failing. Rejected; the free tier is documented as slower.
+- **`LABELLENS_MAX_BATCH_MB=200` on Render** (500 locally): photos wait in memory until
+  checked and the instance has 512 MB. One worker (also what the CPU quota gives).
+- **Default worker count follows the container's CPU quota** (`/sys/fs/cgroup/cpu.max`).
+  `os.cpu_count()` reports the host's cores, so a 0.1-CPU container on a 20-core host would
+  have started 4 OCR workers.
+- **Startup self-test** logs the CPUs and limits the app sees, then OCRs a rendered line.
+  It also loads Tesseract's language data before the first request, which matters after a
+  cold start. A missing Tesseract is logged, not fatal; `/api/health` reports it.
+- **Image:** multi-stage (Node build, then `python:3.12-slim` + `tesseract-ocr`), runs as an
+  unprivileged user, `HEALTHCHECK` on `/api/health`, uvicorn started with `exec` so it gets
+  shutdown signals, `PORT` from the environment (Render sets it). 778 MB, mostly OpenCV and
+  Tesseract. Test-only packages (pytest, httpx) are still installed from the one
+  requirements file; splitting it would save a little and was not worth the extra file.
