@@ -128,7 +128,6 @@ image -> resize/preprocess -> OCR (once) -> compare each field -> LabelResult
                          timings_ms returned for every request
 ```
 
-<TODO: replace with a small diagram or keep the ASCII flow>
 
 1. **Preprocess** (OpenCV): cap image size, grayscale, boost contrast. If OCR confidence is low,
    also deskew and reduce glare.
