@@ -156,5 +156,8 @@ free VM means running a server by hand.
 About 0.75 CPU-seconds per label: half a CPU meets the 5-second target comfortably.
 **Accuracy over speed:** shrinking images to 1200 px to help the free tier only reached 6.2 s
 and wrongly failed a sample, so it was rejected.
-**Cost:** The free tier sleeps after 15 idle minutes (about a minute to wake) and probably
-misses the 5-second target. An agency deployment would run the same image on its own network.
+**Live result:** on the deployed free instance a clean label takes about 4.5 s (one OCR pass)
+and a label needing the second pass 8-9.5 s, with the same results as locally.
+**Cost:** The free tier sleeps after 15 idle minutes (about a minute to wake) and only clean
+labels meet the 5-second target. An agency deployment would run the same image on its own
+network, where half a CPU is enough.

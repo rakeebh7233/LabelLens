@@ -4,10 +4,12 @@ AI-assisted label verification for alcohol compliance review. Upload a label ima
 application data, and LabelLens tells you field by field whether the label matches, in about
 five seconds. It also handles batches of hundreds of labels.
 
-**Live demo:** <TODO: deployed URL>
-**Repository:** <TODO: GitHub URL>
+**Live demo:** [labellens-7rxl.onrender.com](https://labellens-7rxl.onrender.com/)
+**Repository:** [github.com/rakeebh7233/LabelLens](https://github.com/rakeebh7233/LabelLens)
 
-<TODO: add 1-2 screenshots: single result with a "needs review" field, and the batch table>
+![Front Page](docs/image1.png)
+
+![Batch Page](docs/image2.png)
 
 > Prototype for evaluation. Standalone: no COLA integration, no authentication, no data
 > retained after processing. See [Assumptions](#assumptions) and [Limitations](#known-limitations).
@@ -26,12 +28,12 @@ five seconds. It also handles batches of hundreds of labels.
 
 ## What it checks
 
-| Field              | How it is compared                                                                        | Possible results     |
-| ------------------ | ----------------------------------------------------------------------------------------- | -------------------- |
-| Brand name         | Normalized text match, fuzzy fallback                                                     | Pass / Review / Fail |
-| Class/type         | Normalized text match, fuzzy fallback                                                     | Pass / Review / Fail |
-| Alcohol content    | Parsed numerically; ABV and proof are interchangeable                                     | Pass / Fail          |
-| Net contents       | Parsed and converted to mL                                                                | Pass / Review / Fail |
+| Field              | How it is compared                                                                                                   | Possible results     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Brand name         | Normalized text match, fuzzy fallback                                                                                | Pass / Review / Fail |
+| Class/type         | Normalized text match, fuzzy fallback                                                                                | Pass / Review / Fail |
+| Alcohol content    | Parsed numerically; ABV and proof are interchangeable                                                                | Pass / Fail          |
+| Net contents       | Parsed and converted to mL                                                                                           | Pass / Review / Fail |
 | Government warning | Exact wording; "GOVERNMENT WARNING:" must be uppercase; bold checked by stroke width (not bold or unclear -> review) | Pass / Review / Fail |
 
 **Three results, not two.** *Pass* means it matches. *Needs review* means it is probably fine but a
@@ -100,10 +102,11 @@ The repo includes `render.yaml`, a Render Blueprint for one free web service bui
 - **It sleeps** after 15 minutes without traffic and takes about a minute to wake. Open the
   URL a minute before a demo. Sleeping (or any redeploy) also forgets batch jobs, which live
   in memory.
-- **It is slower than the 5-second target.** Render does not publish the free instance's CPU
-  share. Measured with the container capped at 0.1 CPU and 512 MB: **7.6 s median per label**
-  (max 9.4 s), all samples still correct. Every result shows its time, and `timings_ms` in
-  the API response breaks it down, so the real speed is easy to check after deploying.
+- **It is at or over the 5-second target.** Measured on the live demo (October 2026): a clean
+  label that needs one OCR pass takes **about 4.5 s** (5.2 s round trip); a label that needs
+  the second, heavier pass (any mismatch, glare, rotation) takes **8-9.5 s**. One OCR pass
+  costs about 4 s on the free CPU. All results matched the local ones. Every result shows
+  its time, and `timings_ms` in the API response breaks it down.
 - **Batches are capped at 200 MB of photos** (`LABELLENS_MAX_BATCH_MB`) to fit in 512 MB:
   about 300 of the sample labels, or about 50 full-size phone photos. At 0.1 CPU a batch
   checks about 8 labels a minute.
@@ -163,7 +166,7 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 | Batch uploads of 200-300 labels (Sarah)                                             | Batch page with CSV manifest, live progress, sortable table with fails first, CSV export.                                                                                   |
 | Network blocks outbound domains; the previous vendor's ML endpoints failed (Marcus) | No cloud AI dependency. All OCR runs inside the app container.                                                                                                              |
 | "You need judgment." STONE'S THROW vs Stone's Throw (Dave)                          | Three-state results. Case-only differences become *Needs review*, so the agent keeps the decision.                                                                        |
-| Warning must be exact, uppercase and bold (Jenny)                                   | Word-for-word comparison against the canonical text; uppercase prefix enforced; bold checked by stroke width, with doubtful cases sent to review.                                                              |
+| Warning must be exact, uppercase and bold (Jenny)                                   | Word-for-word comparison against the canonical text; uppercase prefix enforced; bold checked by stroke width, with doubtful cases sent to review.                           |
 | Bad angles, glare, poor lighting (Jenny)                                            | Conditional deskew and glare reduction when OCR confidence is low; very poor images produce *Needs review* with a hint to request a better photo instead of a false pass. |
 
 ## Tools and why
@@ -177,7 +180,7 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 | React + Vite + Tailwind | Fast to build accessible, clear UI                       | Server-rendered templates                                                   |
 | Docker                  | Tesseract is a system dependency; one reproducible image | Native buildpack                                                            |
 
-<TODO: link to docs/DECISIONS.md for the longer version>
+[Detailed Decision Document](docs/DECISIONS.md)
 
 ---
 
@@ -204,7 +207,7 @@ Interactive docs: `/docs` (FastAPI Swagger UI).
 - Brand detection is verification-based (is the expected value on the label?). It does not
   discover the brand from scratch.
 - Batch jobs are in memory and are lost on restart. On Render's free tier that includes the
-  service going to sleep after 15 idle minutes, and single labels take about 7-9 s instead
+  service going to sleep after 15 idle minutes, and single labels take about 4.5-9.5 s instead
   of under 5 s (see [Deploying to Render](#deploying-to-render-free-tier)).
 - Accessibility was tested with keyboard and basic screen reader checks only. <TODO: adjust>
 
@@ -230,21 +233,14 @@ docs/       DECISIONS.md
 
 ## Testing notes
 
-<TODO: summarize coverage, e.g. "N unit tests for normalization/parsing/compare, M API tests,
-sample-label regression test asserting expected status for each file">
-
 **Measured performance** (Docker image, all 23 sample labels through `/api/verify`, CPU capped
 with `docker run --cpus`; every run gave the expected result for every sample):
 
-| CPU limit | Median per label | Max | 23-label batch |
-| --------- | ---------------- | --- | -------------- |
-| none (20-core laptop) | 0.89 s | 1.06 s | 5.6 s (4 workers) |
-| 1 CPU     | 0.77 s | 0.89 s | 14.6 s (1 worker) |
-| 0.5 CPU   | 1.47 s | 1.61 s | 28.8 s |
-| 0.1 CPU   | 7.60 s | 9.41 s | 158 s |
+| CPU limit             | Median per label | Max    | 23-label batch    |
+| --------------------- | ---------------- | ------ | ----------------- |
+| none (20-core laptop) | 0.89 s           | 1.06 s | 5.6 s (4 workers) |
+| 1 CPU                 | 0.77 s           | 0.89 s | 14.6 s (1 worker) |
+| 0.5 CPU               | 1.47 s           | 1.61 s | 28.8 s            |
+| 0.1 CPU               | 7.60 s           | 9.41 s | 158 s             |
 
 Memory stayed around 125 MB in every run.
-
-## License / credits
-
-<TODO: license, and note that all sample labels are synthetic with fictional brands>
