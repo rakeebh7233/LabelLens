@@ -1,4 +1,8 @@
-"""Synthetic label images for OCR tests: render text with Pillow, then damage the photo."""
+"""Synthetic label images for OCR tests: render text with Pillow, then damage the photo.
+
+The damage functions live in scripts/samples_lib/defects.py (shared with the sample
+generator) and are re-exported here.
+"""
 
 from pathlib import Path
 
@@ -7,6 +11,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from app.schemas import STANDARD_GOVERNMENT_WARNING
+from samples_lib.defects import blurred, dim_and_uneven, rotated, with_glare
+
+__all__ = ["blurred", "dim_and_uneven", "encode_png", "render_label", "rotated", "with_glare"]
 
 _FONT_DIRS = [Path("/usr/share/fonts/truetype/dejavu"), Path("/usr/share/fonts/dejavu")]
 
@@ -54,39 +61,6 @@ def render_label(
         draw.text((margin, y), line, fill="black", font=font)
         y += 38
     return cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-
-
-def rotated(image: np.ndarray, degrees: float) -> np.ndarray:
-    """Rotate counter-clockwise on a canvas grown to fit, so no text is cut off."""
-    height, width = image.shape[:2]
-    matrix = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1.0)
-    cos, sin = abs(matrix[0, 0]), abs(matrix[0, 1])
-    new_width, new_height = int(height * sin + width * cos), int(height * cos + width * sin)
-    matrix[0, 2] += (new_width - width) / 2
-    matrix[1, 2] += (new_height - height) / 2
-    return cv2.warpAffine(image, matrix, (new_width, new_height), borderValue=(255, 255, 255))
-
-
-def blurred(image: np.ndarray, sigma: float = 2.0) -> np.ndarray:
-    return cv2.GaussianBlur(image, (0, 0), sigma)
-
-
-def with_glare(image: np.ndarray) -> np.ndarray:
-    """A bright elliptical hotspot washing out part of the label, as from a flash or lamp."""
-    height, width = image.shape[:2]
-    yy, xx = np.mgrid[0:height, 0:width]
-    dx, dy = (xx - width * 0.7) / (width * 0.18), (yy - height * 0.3) / (height * 0.1)
-    spot = np.exp(-(dx**2 + dy**2))
-    tinted = image.astype(np.float32) * 0.75 + 30  # off-white paper so the hotspot stands out
-    lit = tinted + spot[..., None] * 255
-    return np.clip(lit, 0, 255).astype(np.uint8)
-
-
-def dim_and_uneven(image: np.ndarray) -> np.ndarray:
-    """Low light with a shadow falling across the label."""
-    height, width = image.shape[:2]
-    gradient = np.linspace(0.9, 0.3, width, dtype=np.float32)[None, :, None]
-    return np.clip(image.astype(np.float32) * gradient, 0, 255).astype(np.uint8)
 
 
 def encode_png(image: np.ndarray) -> bytes:

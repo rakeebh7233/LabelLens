@@ -42,8 +42,8 @@ _UNIT_PATTERNS: list[tuple[str, str]] = [
     ("mL", r"millilit(?:er|re)s?|ml"),
     ("cL", r"centilit(?:er|re)s?|cl"),
     ("L", r"lit(?:er|re)s?|ltr|l"),
-    # Plain "oz" on a beverage label means fluid ounces.
-    ("fl oz", r"fl(?:uid)?\.?\s*(?:ounces?|oz)\.?|ounces?|oz"),
+    # Plain "oz" on a beverage label means fluid ounces. OCR often reads the O as a zero.
+    ("fl oz", r"fl(?:uid)?\.?\s*(?:ounces?|[o0]z)\.?|ounces?|[o0]z"),
     ("pt", r"pints?|pt"),
     ("qt", r"quarts?|qt"),
     ("gal", r"gallons?|gal"),

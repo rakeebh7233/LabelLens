@@ -21,3 +21,7 @@ Thumbs.db
 
 # Local scratch output (uploads are never written to disk by the app)
 *.log
+
+# Generated samples too large to commit (regenerate with the scripts in scripts/)
+samples/load/
+samples/edge_cases/huge.png

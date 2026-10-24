@@ -116,6 +116,8 @@ def test_parse_abv_returns_none_on_garbage(raw: str | None) -> None:
         ("25.4 FL.OZ", 25.4, "fl oz"),
         ("12 fluid ounces", 12.0, "fl oz"),
         ("12 OZ", 12.0, "fl oz"),
+        ("12 FL 0Z", 12.0, "fl oz"),  # OCR read the O as a zero
+        ("12 0Z", 12.0, "fl oz"),
         ("1 pint", 1.0, "pt"),
         ("1 qt", 1.0, "qt"),
         ("1 gallon", 1.0, "gal"),

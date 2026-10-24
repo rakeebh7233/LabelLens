@@ -11,12 +11,12 @@ from functools import lru_cache
 
 from app.config import Settings, get_settings
 from app.extract import fields
-from app.extract.warning import check_warning
+from app.extract.warning import check_warning_in
 from app.matching.compare import compare_alcohol_content, compare_net_contents, compare_text
 from app.ocr.engine import OcrEngine, OcrError, OcrResult, TesseractEngine
 from app.ocr.preprocess import ImageDecodeError, decode_image
 from app.ocr.reader import read_label
-from app.schemas import ApplicationData, FieldName, FieldResult, LabelResult, Status
+from app.schemas import ApplicationData, FieldName, FieldResult, LabelResult, Status, severity
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +54,20 @@ def compare_fields(
         compare_text(FieldName.CLASS_TYPE, application.class_type, *class_type, thresholds),
         compare_alcohol_content(application.alcohol_content, *alcohol, thresholds),
         compare_net_contents(application.net_contents, *net, thresholds),
-        # The warning spans many lines, so it is judged against the whole reading's confidence.
-        check_warning(
-            ocr.text,
-            ocr.mean_confidence,
-            application.government_warning,
-            prefix_bold=None,
-            thresholds=thresholds,
-        ),
+        check_warning_in(ocr, application.government_warning, None, thresholds),
+    ]
+
+
+def best_per_field(primary: list[FieldResult], other: list[FieldResult]) -> list[FieldResult]:
+    """For each field, the less severe of two readings' results; ties keep the primary's.
+
+    Both are readings of the same photo, and different cleanups often read different fields
+    well (on a photo taken at an angle, one read the brand and the other the class/type).
+    A field read correctly in either reading is on the label.
+    """
+    return [
+        alt if severity(alt.status) < severity(main.status) else main
+        for main, alt in zip(primary, other, strict=True)
     ]
 
 
@@ -101,6 +107,13 @@ def verify_label(
 
         step = time.perf_counter()
         results = compare_fields(application, reading.ocr, settings)
+        steps = reading.steps
+        if reading.alternative:
+            other_ocr, other_steps = reading.alternative
+            merged = best_per_field(results, compare_fields(application, other_ocr, settings))
+            if merged != results:
+                steps = list(dict.fromkeys(steps + other_steps))
+            results = merged
         timings["compare"] = round((time.perf_counter() - step) * 1000, 1)
     except ImageDecodeError as exc:
         return failed(f"{exc}. Please upload a JPEG or PNG photo of the label.", timings)
@@ -123,7 +136,7 @@ def verify_label(
         filename=filename,
         fields=results,
         timings_ms=timings,
-        preprocessing=reading.steps,
+        preprocessing=steps,
         ocr_confidence=round(reading.ocr.mean_confidence, 3),
         warnings=warnings,
     )

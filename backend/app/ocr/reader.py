@@ -20,6 +20,9 @@ class LabelReading:
     # Plain-language preprocessing steps applied to the image that produced `ocr`.
     steps: list[str]
     timings_ms: dict[str, float] = field(default_factory=dict)
+    # The reading that was not chosen, with its steps, when a retry ran. Different readings
+    # often get different fields right, so callers may take each field from either one.
+    alternative: tuple[OcrResult, list[str]] | None = None
 
 
 def _elapsed_ms(start: float) -> float:
@@ -64,6 +67,7 @@ def read_label(
     start = time.perf_counter()
     retry = engine.run(fixed.image)
     timings["ocr_retry"] = _elapsed_ms(start)
+    retry_steps = base.steps + fixed.steps
     if retry.score > reading.score:
-        return LabelReading(retry, base.steps + fixed.steps, timings)
-    return LabelReading(reading, base.steps, timings)
+        return LabelReading(retry, retry_steps, timings, alternative=(reading, base.steps))
+    return LabelReading(reading, base.steps, timings, alternative=(retry, retry_steps))

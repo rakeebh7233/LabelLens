@@ -1,0 +1,222 @@
+{
+  "01_old_tom_perfect.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "02_stones_throw_case.png": {
+    "overall": "review",
+    "fields": {
+      "brand_name": "review",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "03_brand_curly_apostrophe.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "04_brand_ocr_like_typo.png": {
+    "overall": "review",
+    "fields": {
+      "brand_name": "review",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "05_wrong_brand.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "fail",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "06_wrong_abv.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "fail",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "07_proof_only.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "08_wrong_net_contents.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "fail",
+      "government_warning": "pass"
+    }
+  },
+  "09_net_contents_units.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "10_warning_titlecase.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "fail"
+    }
+  },
+  "11_warning_reworded.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "fail"
+    }
+  },
+  "12_warning_missing_sentence2.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "fail"
+    }
+  },
+  "13_warning_absent.png": {
+    "overall": "fail",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "fail"
+    }
+  },
+  "14_warning_not_bold.png": {
+    "overall": "review",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "review"
+    }
+  },
+  "15_warning_tiny_text.png": {
+    "overall": "review",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "review"
+    }
+  },
+  "16_beer_label.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "17_wine_label.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "18_rotated_12deg.png": {
+    "overall": "pass",
+    "fields": {
+      "brand_name": "pass",
+      "class_type": "pass",
+      "alcohol_content": "pass",
+      "net_contents": "pass",
+      "government_warning": "pass"
+    }
+  },
+  "19_perspective_skew.png": {
+    "overall": "not_fail",
+    "fields": {
+      "brand_name": "not_fail",
+      "class_type": "not_fail",
+      "alcohol_content": "not_fail",
+      "net_contents": "not_fail",
+      "government_warning": "not_fail"
+    }
+  },
+  "20_glare.png": {
+    "overall": "not_fail",
+    "fields": {
+      "brand_name": "not_fail",
+      "class_type": "not_fail",
+      "alcohol_content": "not_fail",
+      "net_contents": "not_fail",
+      "government_warning": "not_fail"
+    }
+  },
+  "20b_glare_hides_abv.png": {
+    "overall": "not_pass",
+    "fields": {
+      "alcohol_content": "not_pass"
+    }
+  },
+  "21_low_light_blur.png": {
+    "overall": "not_fail",
+    "fields": {
+      "brand_name": "not_fail",
+      "class_type": "not_fail",
+      "alcohol_content": "not_fail",
+      "net_contents": "not_fail",
+      "government_warning": "not_fail"
+    }
+  },
+  "22_curved_text.png": {
+    "overall": "review",
+    "fields": {}
+  }
+}

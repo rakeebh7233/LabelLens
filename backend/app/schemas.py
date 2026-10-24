@@ -38,6 +38,11 @@ class JobState(StrEnum):
 _SEVERITY = {Status.PASS: 0, Status.REVIEW: 1, Status.FAIL: 2}
 
 
+def severity(status: Status) -> int:
+    """0 for pass, 1 for review, 2 for fail."""
+    return _SEVERITY[status]
+
+
 def worst_status(statuses: Iterable[Status]) -> Status:
     """Return the most severe status. Nothing verified is never a pass, so empty input is FAIL."""
     return max(statuses, key=_SEVERITY.__getitem__, default=Status.FAIL)

@@ -7,6 +7,7 @@ STANDARD_GOVERNMENT_WARNING in app/schemas.py.
 """
 
 import re
+from collections.abc import Sequence
 from difflib import SequenceMatcher
 
 from rapidfuzz import fuzz
@@ -15,6 +16,7 @@ from rapidfuzz.distance import Levenshtein
 from app.config import MatchThresholds
 from app.matching.compare import DEFAULT_THRESHOLDS, downgrade_if_unsure, make_result
 from app.matching.normalize import collapse_whitespace, fold_unicode
+from app.ocr.engine import OcrResult, OcrWord
 from app.schemas import STANDARD_GOVERNMENT_WARNING, FieldName, FieldResult, Status
 
 PREFIX = "GOVERNMENT WARNING:"
@@ -225,6 +227,45 @@ def check_warning(
     prefix_bold: bool | None = None,
     thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
 ) -> FieldResult:
-    """Find and judge the warning in the full OCR text of a label. Entry point for verify."""
+    """Find and judge the warning in OCR text, with a confidence supplied by the caller."""
     found = locate_warning(prepare(ocr_text), collapse_whitespace(expected))
+    return compare_warning(found, confidence, expected, prefix_bold, thresholds)
+
+
+# The warning counts as hard to read when at least this share of its words were.
+_UNSURE_SHARE = 0.2
+
+
+def block_confidence(block: str, words: Sequence[OcrWord]) -> float:
+    """How sure OCR was of the warning block: the 20th-percentile confidence of its words.
+
+    The block's words are aligned back to the OCR words; every word from the first to the last
+    aligned one counts. A mean let a half-garbled warning on curved text look confident (0.74)
+    because the readable words are crisp; the minimum would let one smudged word soften a real
+    rewording to review. The percentile is low exactly when a fifth or more of the words were.
+    """
+    block_tokens = block.casefold().split()
+    word_tokens = [fold_unicode(w.text).casefold() for w in words]
+    matcher = SequenceMatcher(None, block_tokens, word_tokens, autojunk=False)
+    matched = [m for m in matcher.get_matching_blocks() if m.size]
+    if not matched:
+        return 0.0
+    span = words[matched[0].b : matched[-1].b + matched[-1].size]
+    confidences = sorted(w.confidence for w in span)
+    return confidences[int(_UNSURE_SHARE * (len(confidences) - 1))]
+
+
+def check_warning_in(
+    ocr: OcrResult,
+    expected: str = STANDARD_GOVERNMENT_WARNING,
+    prefix_bold: bool | None = None,
+    thresholds: MatchThresholds = DEFAULT_THRESHOLDS,
+) -> FieldResult:
+    """Find and judge the warning in an OCR reading. Entry point for verify.
+
+    Judged with the confidence of the warning's own words, not the whole label's: a crisp
+    brand and a garbled warning must not average out to "confident".
+    """
+    found = locate_warning(prepare(ocr.text), collapse_whitespace(expected))
+    confidence = block_confidence(found, ocr.words) if found else ocr.mean_confidence
     return compare_warning(found, confidence, expected, prefix_bold, thresholds)

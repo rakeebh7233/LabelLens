@@ -267,3 +267,46 @@ Each entry: what we chose, why, and what it costs.
 - **Export waits for the batch to finish (409 while running)** so a partial file is never
   mistaken for the full result. Rows are fails first, then review, then pass. Cells starting
   with `= + - @` are prefixed with `'` so spreadsheet apps do not run OCR text as a formula.
+
+## Sample labels and the regression suite
+
+- **One generator, everything derived.** `scripts/make_samples.py` renders the 23 labels
+  from `samples_lib/spec.py`, plus `applications.csv`, `applications_with_orphans.csv`,
+  `expected.json`, the edge cases, a contact sheet and `samples/README.md`. Fixed seeds and
+  bundled fonts make it deterministic (two runs gave 33 identical files). `huge.png` (over
+  10 MB) and `samples/load/` (250 labels) are generated but gitignored.
+- **Fictional names only.** The spec's "Harbor Light" and "Cedar Ridge" belong to real
+  companies, so they became Harbor Wren, Bramblewick and Quillmoor.
+- **DejaVu fonts only** (Bitstream Vera licence, bundled with its licence text). The Ubuntu
+  fonts on the dev machine were left out because their licence carries trademark terms that
+  Debian treats as non-free.
+- **Shared damage functions.** The rotate/blur/glare/shadow helpers moved from
+  `backend/tests/label_images.py` into `scripts/samples_lib/defects.py`, unchanged; the tests
+  import them through `pythonpath = . ../scripts` in pytest.ini. The OCR previews
+  (`samples/ocr_synthetic/`) were deleted in favour of the full sample set.
+- **Smooth paper texture.** Per-pixel grain made every PNG about 2.8 MB (noise does not
+  compress); low-frequency mottling keeps backgrounds uneven at about 600 KB per label.
+- **Expected results can be loose for degraded photos:** `not_fail` (pass or review) for a
+  good label photographed badly, `not_pass` (review or fail) when glare hides a field.
+- **Samples that do not yet produce the spec's expected result are strict expected failures**
+  (`KNOWN_GAPS` in `samples_lib/spec.py`, also listed in the samples README), pending a
+  decision: 04 (OCR reads the zero in T0M as O), 14 (no bold detection yet) and 15 (tiny
+  warning text reads as no warning at all).
+- **Pipeline fixes found by the samples:**
+  - Net contents accepts "0Z" for "OZ", a common OCR misread (beer label).
+  - *Each field takes its best result across both OCR readings* (`best_per_field`). On the
+    perspective sample, the first reading got the brand and volume right while the second
+    got the class/type and warning; keeping one whole reading lost fields that were plainly
+    on the label. Ties keep the higher-scoring reading. A field matched in either reading
+    of the same photo is on the label, so this does not create false passes.
+  - *The warning is judged on its own words' confidence* (20th percentile of the block's
+    words) instead of the whole label's mean. On curved text the warning was half garbled
+    while the brand was crisp, and the mean (0.74) made a misreading look like a misprint.
+    The percentile is low only when at least a fifth of the warning's words are; one smudged
+    word does not soften a real rewording.
+- **Sabotage check:** making brand capitalization differences pass makes sample 02 fail, as
+  intended. Disabling only the capitals check on the warning prefix fails no sample, because
+  the word-for-word check is also case-strict and still rejects "Government Warning:". The
+  two rules back each other up.
+- **Measured:** median 958 ms per sample label (max 1.1 s). 250 labels in 44 s with 4
+  workers (0.18 s per label).

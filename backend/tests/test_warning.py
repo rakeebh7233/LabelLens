@@ -1,7 +1,15 @@
 import pytest
 
 from app.config import MatchThresholds
-from app.extract.warning import check_warning, compare_warning, locate_warning, prepare
+from app.extract.warning import (
+    block_confidence,
+    check_warning,
+    check_warning_in,
+    compare_warning,
+    locate_warning,
+    prepare,
+)
+from app.ocr.engine import OcrResult, OcrWord
 from app.schemas import STANDARD_GOVERNMENT_WARNING as W
 from app.schemas import FieldName, Status
 
@@ -208,3 +216,40 @@ def test_compare_warning_without_text_fails() -> None:
     result = compare_warning(None, SURE)
     assert result.status is F
     assert result.found is None
+
+
+# check_warning_in: confidence comes from the warning's own words
+
+
+def _words(text: str, confidence_of: dict[str, float] | None = None) -> OcrResult:
+    lookup = confidence_of or {}
+    return OcrResult(
+        tuple(
+            OcrWord(word, 0, 0, 10, 10, lookup.get(word, 0.95), (1, 1, n))
+            for n, line in enumerate(text.splitlines())
+            for word in line.split()
+        ),
+        0.95,
+    )
+
+
+def test_block_confidence_ignores_the_rest_of_the_label() -> None:
+    reading = _words("OLD TOM\n" + W, {"OLD": 0.1, "TOM": 0.1})
+    assert block_confidence(W, reading.words) == 0.95
+
+
+def test_garbled_warning_on_a_clear_label_is_review_not_fail() -> None:
+    """Curved text: a fifth or more of the warning's words unreadable -> may be a misreading."""
+    garbled = W.replace("Surgeon General, women", "Surg eon Gen . wo").replace(
+        "impairs your ability", "imp vai asin"
+    )
+    shaky = {w: 0.2 for w in ("Surg", "eon", "Gen", ".", "wo", "imp", "vai", "asin", "of", "the")}
+    result = check_warning_in(_words("OLD TOM DISTILLERY\n" + garbled, shaky))
+    assert result.status is R
+    assert result.reason is not None and "may be a misreading" in result.reason
+
+
+def test_crisp_reworded_warning_still_fails() -> None:
+    reworded = W.replace("should not", "must not")
+    result = check_warning_in(_words(reworded, {"must": 0.3}))  # one shaky word is not enough
+    assert result.status is F
